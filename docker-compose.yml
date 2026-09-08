@@ -34,6 +34,11 @@ services:
       ORCHESTRATOR_URL: http://host.docker.internal:8080
       AI_ENGINE_SECRET: ${AI_ENGINE_SECRET}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -42,21 +47,11 @@ services:
     <<: *ai-common
     ports:
       - "8000:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
 
   celery-worker:
     build: ./ai_engine
     <<: *ai-common
     command: celery -A app.tasks.workers.celery_app worker --loglevel=info
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
 
 volumes:
   pgdata:
