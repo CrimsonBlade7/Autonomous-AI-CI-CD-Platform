@@ -22,9 +22,11 @@ import (
 // codes across successive containers, so a single test can drive several
 // run_tests cycles without a real Docker daemon.
 type scriptedDockerClient struct {
-	mu        sync.Mutex
-	exitCodes []int
-	callIdx   int
+	mu              sync.Mutex
+	exitCodes       []int
+	callIdx         int
+	currentExitCode int
+	inspectCalls    int
 }
 
 func (f *scriptedDockerClient) ImageList(ctx context.Context, options dockerClient.ImageListOptions) (dockerClient.ImageListResult, error) {
@@ -68,12 +70,16 @@ func (f *scriptedDockerClient) ContainerWait(ctx context.Context, containerID st
 
 func (f *scriptedDockerClient) ContainerInspect(ctx context.Context, containerID string, options dockerClient.ContainerInspectOptions) (dockerClient.ContainerInspectResult, error) {
 	f.mu.Lock()
-	idx := f.callIdx
-	if idx >= len(f.exitCodes) {
-		idx = len(f.exitCodes) - 1
+	if f.inspectCalls%2 == 0 {
+		idx := f.callIdx
+		if idx >= len(f.exitCodes) {
+			idx = len(f.exitCodes) - 1
+		}
+		f.currentExitCode = f.exitCodes[idx]
+		f.callIdx++
 	}
-	exitCode := f.exitCodes[idx]
-	f.callIdx++
+	exitCode := f.currentExitCode
+	f.inspectCalls++
 	f.mu.Unlock()
 
 	start := time.Now()
@@ -109,8 +115,11 @@ func newFakeAIEngine(t *testing.T) (*httptest.Server, chan recordedRequest) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		received <- recordedRequest{jobType: r.Header.Get("Job-Type"), req: req}
 		w.WriteHeader(http.StatusOK)
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+		received <- recordedRequest{jobType: r.Header.Get("Job-Type"), req: req}
 	}))
 	t.Cleanup(srv.Close)
 	return srv, received
@@ -197,7 +206,7 @@ func TestRunWorkflow_MultipleRunTestsCyclesThenClose(t *testing.T) {
 
 	select {
 	case errObj := <-errCh:
-		t.Fatalf("unexpected error on error channel: %+v", errObj)
+		t.Fatalf("unexpected error on error channel (wfid=%d): %v", errObj.wfid, errObj.err)
 	default:
 	}
 }
