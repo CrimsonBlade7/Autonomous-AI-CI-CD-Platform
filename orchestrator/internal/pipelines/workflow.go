@@ -228,7 +228,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClien
 				}
 
 				// Process the container
-				contInspect, logOut, logErr, err := processContainer(ctx, tag, cli)
+				contInspect, logOut, logErr, err := processContainer(ctx, tag, aier.TestCmd, cli)
 				if err != nil {
 					wf.errorChannel <- ErrorObject{
 						wfid: wf.wfid,
@@ -292,10 +292,10 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClien
 }
 
 // Creates a container, runs it, and removes it. Returns a ContainerInspection, stdout, stderr, and an error.
-func processContainer(ctx context.Context, tag string, cli dockertools.DockerClient) (inspect dockertools.ContainerInspection, logOutString string, logErrString string, err error) {
+func processContainer(ctx context.Context, tag string, cmd []string, cli dockertools.DockerClient) (inspect dockertools.ContainerInspection, logOutString string, logErrString string, err error) {
 	subContext, cancel := context.WithTimeout(ctx, time.Duration(config.ContainerTimeout)*time.Minute)
 	defer cancel()
-	contID, logOut, logErr, err := dockertools.RunContainer(subContext, cli, tag)
+	contID, logOut, logErr, err := dockertools.RunContainer(subContext, cli, tag, cmd)
 	if err != nil {
 		return dockertools.ContainerInspection{}, "", "", fmt.Errorf("Failed to build container: %w", err)
 	}

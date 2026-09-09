@@ -8,6 +8,7 @@ type AIEngineResponse struct {
 	PullRequest PullRequest
 
 	// Tests are ignored if Done.
+	TestCmd  []string
 	TestName string
 	Tests    []byte
 

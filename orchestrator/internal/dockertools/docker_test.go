@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -42,6 +43,7 @@ type fakeContainerManager struct {
 	list       dockerClient.ContainerListResult
 	listErr    error
 	removed    []string
+	created    []dockerClient.ContainerCreateOptions
 	removeErr  error
 	create     dockerClient.ContainerCreateResult
 	createErr  error
@@ -58,6 +60,7 @@ func (f *fakeContainerManager) ContainerList(ctx context.Context, options docker
 }
 
 func (f *fakeContainerManager) ContainerCreate(ctx context.Context, options dockerClient.ContainerCreateOptions) (dockerClient.ContainerCreateResult, error) {
+	f.created = append(f.created, options)
 	return f.create, f.createErr
 }
 
@@ -200,7 +203,7 @@ func TestRemoveContainer(t *testing.T) {
 
 func TestRunContainer_CreateError(t *testing.T) {
 	cm := &fakeContainerManager{createErr: errors.New("no docker")}
-	_, _, _, err := RunContainer(context.Background(), cm, "tag")
+	_, _, _, err := RunContainer(context.Background(), cm, "tag", nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -217,7 +220,7 @@ func TestRunContainer_WaitError(t *testing.T) {
 			Error:  errCh,
 		},
 	}
-	_, _, _, err := RunContainer(context.Background(), cm, "tag")
+	_, _, _, err := RunContainer(context.Background(), cm, "tag", nil)
 	if err == nil {
 		t.Fatal("expected wait error")
 	}
@@ -234,12 +237,16 @@ func TestRunContainer_Success(t *testing.T) {
 			Error:  make(chan error),
 		},
 	}
-	id, outR, errR, err := RunContainer(context.Background(), cm, "tag")
+	command := []string{"pytest", "test_generated.py"}
+	id, outR, errR, err := RunContainer(context.Background(), cm, "tag", command)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if id != "cid" {
 		t.Errorf("id = %q", id)
+	}
+	if got := cm.created[0].Config.Cmd; !slices.Equal(got, command) {
+		t.Errorf("container command = %v, want %v", got, command)
 	}
 	_, _ = io.Copy(io.Discard, outR)
 	_, _ = io.Copy(io.Discard, errR)
