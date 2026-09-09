@@ -246,14 +246,14 @@ func TestHandlePullRequest_DuplicateOpenedPanics(t *testing.T) {
 	_ = wfm.handlePullRequest(context.Background(), nil, samplePR("opened"), types.NewPushedCommits())
 }
 
-func TestHandlePullRequest_MissingWorkflowPanics(t *testing.T) {
+func TestHandlePullRequest_MissingWorkflowIgnored(t *testing.T) {
 	wfm := NewWorkflowManager()
-	defer func() {
-		if recover() == nil {
-			t.Fatal("expected panic")
-		}
-	}()
-	_ = wfm.handlePullRequest(context.Background(), nil, samplePR("edited"), types.NewPushedCommits())
+	if err := wfm.handlePullRequest(context.Background(), nil, samplePR("edited"), types.NewPushedCommits()); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := wfm.Get(42); ok {
+		t.Fatal("missing workflow should remain absent")
+	}
 }
 
 func TestHandlePullRequest_UnsupportedAction(t *testing.T) {

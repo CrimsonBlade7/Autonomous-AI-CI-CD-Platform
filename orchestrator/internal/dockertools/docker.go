@@ -105,7 +105,7 @@ func ClearOldContainers(ctx context.Context, cm ContainerManager) (err error) {
 	return nil
 }
 
-func detectBuildRoot(srcPath string) (string, error) {
+func DetectBuildRoot(srcPath string) (string, error) {
 	if srcPath == "" {
 		return "", fmt.Errorf("build root path is empty")
 	}
@@ -114,7 +114,7 @@ func detectBuildRoot(srcPath string) (string, error) {
 		return srcPath, nil
 	}
 
-	bestRoot := srcPath
+	bestRoot := ""
 	bestScore := -1
 
 	walkErr := filepath.WalkDir(srcPath, func(path string, d os.DirEntry, err error) error {
@@ -159,14 +159,14 @@ func detectBuildRoot(srcPath string) (string, error) {
 	}
 
 	if bestScore < 0 {
-		return srcPath, nil
+		return "", fmt.Errorf("no supported build config found in %s (expected Dockerfile, pyproject.toml, requirements.txt, or package.json)", srcPath)
 	}
 	return bestRoot, nil
 }
 
 // Builds an image from src with sha as the tag.
 func BuildImage(ctx context.Context, im ImageManager, wsName, sha, srcPath string, tb TarBuilder) (tag string, err error) {
-	buildRoot, err := detectBuildRoot(srcPath)
+	buildRoot, err := DetectBuildRoot(srcPath)
 	if err != nil {
 		return "", fmt.Errorf("Failed to detect project root: %w", err)
 	}

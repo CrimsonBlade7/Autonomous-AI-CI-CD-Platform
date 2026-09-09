@@ -142,7 +142,8 @@ func (wfm *WorkflowManager) handlePullRequest(ctx context.Context, cli *dockerCl
 			return fmt.Errorf("Workflow is already running: %v", wf.wfid)
 		}
 	} else if pr.Action != "opened" {
-		panic(fmt.Sprintf("Workflow does not exist: %v\n Action: %s", pr.Number, pr.Action))
+		slog.Warn("Ignoring PR event for workflow that is not active", "pr", pr.Number, "action", pr.Action)
+		return nil
 	}
 
 	switch pr.Action {

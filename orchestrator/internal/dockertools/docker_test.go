@@ -122,14 +122,25 @@ func TestClearOldContainers(t *testing.T) {
 }
 
 func TestBuildImage_Success(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "Dockerfile"), []byte("FROM scratch\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	body := io.NopCloser(strings.NewReader(`{"stream":"ok"}`))
 	im := &fakeImageManager{build: dockerClient.ImageBuildResult{Body: body}}
-	tag, err := BuildImage(context.Background(), im, "ws", "sha1", ".", nopTarBuilder{})
+	tag, err := BuildImage(context.Background(), im, "ws", "sha1", root, nopTarBuilder{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if tag != "ws:sha1" {
 		t.Errorf("tag = %q", tag)
+	}
+}
+
+func TestDetectBuildRoot_NoSupportedConfig(t *testing.T) {
+	root := t.TempDir()
+	if _, err := DetectBuildRoot(root); err == nil {
+		t.Fatal("expected unsupported project layout error")
 	}
 }
 
@@ -146,7 +157,7 @@ func TestDetectBuildRoot_FindsNestedProject(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := detectBuildRoot(root)
+	got, err := DetectBuildRoot(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,11 +167,15 @@ func TestDetectBuildRoot_FindsNestedProject(t *testing.T) {
 }
 
 func TestBuildImage_ErrorDetail(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "Dockerfile"), []byte("FROM scratch\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	payload, _ := json.Marshal(map[string]any{
 		"errorDetail": map[string]any{"code": 1, "message": "fail"},
 	})
 	im := &fakeImageManager{build: dockerClient.ImageBuildResult{Body: io.NopCloser(bytes.NewReader(payload))}}
-	_, err := BuildImage(context.Background(), im, "ws", "sha1", ".", nopTarBuilder{})
+	_, err := BuildImage(context.Background(), im, "ws", "sha1", root, nopTarBuilder{})
 	if err == nil {
 		t.Fatal("expected build error")
 	}
