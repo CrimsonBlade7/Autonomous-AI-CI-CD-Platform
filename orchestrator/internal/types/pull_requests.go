@@ -32,7 +32,8 @@ func (pr *PullRequest) UnmarshalPullRequest(data []byte) (err error) {
 			Base struct {
 				Sha string `json:"sha"`
 			} `json:"base"`
-			Merged bool `json:"merged"`
+			Merged      bool   `json:"merged"`
+			CommentsURL string `json:"comments_url"`
 		} `json:"pull_request"`
 	}
 
@@ -48,6 +49,7 @@ func (pr *PullRequest) UnmarshalPullRequest(data []byte) (err error) {
 	pr.HeadSHA = temp.PullRequest.Head.Sha
 	pr.BaseSHA = temp.PullRequest.Base.Sha
 	pr.Merged = temp.PullRequest.Merged
+	pr.CommentsURL = temp.PullRequest.CommentsURL
 
 	return nil
 }

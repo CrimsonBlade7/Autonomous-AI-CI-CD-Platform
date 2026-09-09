@@ -105,7 +105,6 @@ func whHandler(prChan chan<- types.PullRequest, pc *types.PushedCommits) http.Ha
 
 		slog.Info("Webhook recieved", "pull request", pr)
 		prChan <- pr
-
 	}
 }
 
@@ -152,7 +151,7 @@ func aiEngineResponseHandler(aierChan chan<- types.AIEngineResponse) http.Handle
 			slog.Error("Could not unmarshal the data into a type.Response", "error", err)
 			return
 		}
-
+		slog.Info("AI Engine response recived", "aier", resp)
 		aierChan <- resp
 	}
 }
@@ -211,6 +210,7 @@ func SendRequestAIEngine(ctx context.Context, jobType string, req types.AIEngine
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("Bad response, status: %v", resp.StatusCode)
 	}
+	slog.Info("Request sent to AI engine", "jobtype", jobType, "aier", req)
 	return nil
 }
 
@@ -239,6 +239,7 @@ func PostSummaryComment(ctx context.Context, commentsURL string, body string) (e
 		return fmt.Errorf("Unexpected status code %v posting comment: %s", resp.StatusCode, respBody)
 	}
 
+	slog.Info("Summary comment posted", "comment", body)
 	return nil
 }
 

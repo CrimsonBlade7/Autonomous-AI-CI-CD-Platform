@@ -15,7 +15,6 @@ import (
 	"github.com/benl1006/Autonomous-CI-Platform/orchestrator/internal/servertools"
 	"github.com/benl1006/Autonomous-CI-Platform/orchestrator/internal/types"
 	"github.com/benl1006/Autonomous-CI-Platform/orchestrator/internal/wstools"
-	dockerClient "github.com/moby/moby/client"
 )
 
 type Workflow struct {
@@ -107,7 +106,7 @@ func (wf *Workflow) isRunning() bool {
 }
 
 // Starts the job pipeline. Handles incoming jobs. Blocks until an error occurs.
-func (wf *Workflow) runWorkflow(ctx context.Context, cli *dockerClient.Client, pc *types.PushedCommits) {
+func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClient, pc *types.PushedCommits) {
 	defer close(wf.done)
 	for {
 		select {
@@ -293,7 +292,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli *dockerClient.Client, p
 }
 
 // Creates a container, runs it, and removes it. Returns a ContainerInspection, stdout, stderr, and an error.
-func processContainer(ctx context.Context, tag string, cli *dockerClient.Client) (inspect dockertools.ContainerInspection, logOutString string, logErrString string, err error) {
+func processContainer(ctx context.Context, tag string, cli dockertools.DockerClient) (inspect dockertools.ContainerInspection, logOutString string, logErrString string, err error) {
 	subContext, cancel := context.WithTimeout(ctx, time.Duration(config.ContainerTimeout)*time.Minute)
 	defer cancel()
 	contID, logOut, logErr, err := dockertools.RunContainer(subContext, cli, tag)
