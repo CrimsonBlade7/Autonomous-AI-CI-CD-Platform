@@ -7,8 +7,8 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/benl1006/Autonomous-CI-Platform/orchestrator/internal/dockertools"
 	"github.com/benl1006/Autonomous-CI-Platform/orchestrator/internal/types"
-	dockerClient "github.com/moby/moby/client"
 )
 
 // Wraps an error with a wfid.
@@ -61,7 +61,7 @@ func (wfm *WorkflowManager) Remove(id int) {
 }
 
 // Starts the run pipeline. Handles incoming workflows.
-func (wfm *WorkflowManager) RunWorkflowPipeline(ctx context.Context, cli *dockerClient.Client, prChan <-chan types.PullRequest, aierChan <-chan types.AIEngineResponse, pc *types.PushedCommits) {
+func (wfm *WorkflowManager) RunWorkflowPipeline(ctx context.Context, cli dockertools.DockerClient, prChan <-chan types.PullRequest, aierChan <-chan types.AIEngineResponse, pc *types.PushedCommits) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -115,7 +115,7 @@ func (wfm *WorkflowManager) RunWorkflowPipeline(ctx context.Context, cli *docker
 	}
 }
 
-func (wfm *WorkflowManager) handlePullRequest(ctx context.Context, cli *dockerClient.Client, pr types.PullRequest, pc *types.PushedCommits) (err error) {
+func (wfm *WorkflowManager) handlePullRequest(ctx context.Context, cli dockertools.DockerClient, pr types.PullRequest, pc *types.PushedCommits) (err error) {
 	num := pr.Number
 	wfo, exists := wfm.Get(num)
 	var wf *Workflow
@@ -195,13 +195,13 @@ func (wfm *WorkflowManager) handlePullRequest(ctx context.Context, cli *dockerCl
 }
 
 // Starts a workflow on pr.
-func (wfm *WorkflowManager) openPr(ctx context.Context, cli *dockerClient.Client, pr types.PullRequest, wf *Workflow, pc *types.PushedCommits) {
+func (wfm *WorkflowManager) openPr(ctx context.Context, cli dockertools.DockerClient, pr types.PullRequest, wf *Workflow, pc *types.PushedCommits) {
 	subCtx, end := context.WithCancel(ctx)
 	wfm.Set(pr.Number, WorkflowObject{
 		workflow: wf,
 		cancel:   end,
 	})
-	go func(ctx context.Context, cli *dockerClient.Client) {
+	go func(ctx context.Context, cli dockertools.DockerClient) {
 		defer end()
 		wf.runWorkflow(subCtx, cli, pc)
 	}(subCtx, cli)

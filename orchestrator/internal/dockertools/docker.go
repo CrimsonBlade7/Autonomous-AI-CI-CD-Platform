@@ -31,6 +31,11 @@ type ContainerManager interface {
 	ContainerInspect(ctx context.Context, containerID string, options dockerClient.ContainerInspectOptions) (dockerClient.ContainerInspectResult, error)
 }
 
+type DockerClient interface {
+	ImageManager
+	ContainerManager
+}
+
 type ContainerInspection struct {
 	ExitCode  int
 	StartTime time.Time
