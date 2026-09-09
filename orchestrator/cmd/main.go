@@ -34,7 +34,7 @@ func main() {
 
 	// slogs are currently printed to stdout and the log folder
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	logFilename := fmt.Sprintf("ci_platform_%s.log", timestamp)
+	logFilename := fmt.Sprintf("orchestrator_%s.log", timestamp)
 	logFile, err := os.OpenFile(filepath.Join(logDirPath, logFilename), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		fmt.Printf("Failed to open log file: %v\n", err)
@@ -90,7 +90,6 @@ TODO List:
 	- adding timeout contexts for requests?
 	- handle dead containers
 	- list testing and platform limitations and conditions; close platfrom if conditions are not met *
-	- implement post summary comment
 
 Wishlist
 	- persistance

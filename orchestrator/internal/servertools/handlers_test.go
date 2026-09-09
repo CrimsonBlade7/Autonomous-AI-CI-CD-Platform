@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -117,16 +116,16 @@ func TestWhHandler_IgnoresSelfPush(t *testing.T) {
 }
 
 func TestAIEngineResponseHandler_AcceptsValidPayload(t *testing.T) {
-	prev := config.AIEngineSecret
-	t.Cleanup(func() { config.AIEngineSecret = prev })
-	config.AIEngineSecret = "aisec"
+	prev := config.InternalSecret
+	t.Cleanup(func() { config.InternalSecret = prev })
+	config.InternalSecret = "aisec"
 
 	payload := types.AIEngineResponse{Wfid: 3, Done: true, Summary: "ok"}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sig, err := generateHMAC(body, config.AIEngineSecret)
+	sig, err := generateHMAC(body, config.InternalSecret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -149,9 +148,9 @@ func TestAIEngineResponseHandler_AcceptsValidPayload(t *testing.T) {
 }
 
 func TestAIEngineResponseHandler_Unauthorized(t *testing.T) {
-	prev := config.AIEngineSecret
-	t.Cleanup(func() { config.AIEngineSecret = prev })
-	config.AIEngineSecret = "aisec"
+	prev := config.InternalSecret
+	t.Cleanup(func() { config.InternalSecret = prev })
+	config.InternalSecret = "aisec"
 
 	req := httptest.NewRequest(http.MethodPost, "/patch", bytes.NewReader([]byte(`{"Wfid":1}`)))
 	req.Header.Set("Content-Type", "application/json")
@@ -250,13 +249,13 @@ func TestPostSummaryComment_BadStatus(t *testing.T) {
 }
 
 func TestSendRequestAIEngine_SuccessAndBadStatus(t *testing.T) {
-	prevPort, prevSecret, prevTimeout := config.AIEnginePort, config.AIEngineSecret, config.RequestTimeout
+	prevURL, prevSecret, prevTimeout := config.AIEngineURL, config.InternalSecret, config.RequestTimeout
 	t.Cleanup(func() {
-		config.AIEnginePort = prevPort
-		config.AIEngineSecret = prevSecret
+		config.AIEngineURL = prevURL
+		config.InternalSecret = prevSecret
 		config.RequestTimeout = prevTimeout
 	})
-	config.AIEngineSecret = "aisec"
+	config.InternalSecret = "aisec"
 	config.RequestTimeout = 2
 
 	mux := http.NewServeMux()
@@ -280,11 +279,7 @@ func TestSendRequestAIEngine_SuccessAndBadStatus(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
 
-	u, err := url.Parse(srv.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config.AIEnginePort = u.Port()
+	config.AIEngineURL = srv.URL
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -298,11 +293,7 @@ func TestSendRequestAIEngine_SuccessAndBadStatus(t *testing.T) {
 	})
 	bad := httptest.NewServer(muxBad)
 	t.Cleanup(bad.Close)
-	u, err = url.Parse(bad.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config.AIEnginePort = u.Port()
+	config.AIEngineURL = bad.URL
 	if err := SendRequestAIEngine(ctx, "logs", types.AIEngineRequest{Wfid: 9}); err == nil {
 		t.Fatal("expected error for non-200 response")
 	}

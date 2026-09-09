@@ -38,7 +38,7 @@ ExitCode  int
 ```
 
 ### AI Engine -> Orchestrator
-The AI Engine sends an http request to the local port assigned to the orchestrator. The AI Engine sends logs or a done signal.
+The AI Engine sends an http request to the local port assigned to the orchestrator. The AI Engine sends logs or a done signal. The orchestrator listens for the AI Engine on the "http://.../aiengine" route.
 
 #### Headers
 - HMAC-Signature-256: `<sha256 hmac signature>`
@@ -64,8 +64,8 @@ Port                        string = "8080"
 GithubToken                 string
 RepositoryUrl               string
 GithubSecret                string
-AIEngineSecret              string
-AIEnginePort                string = "8000"
+InternalSecret              string
+AIEngineURL                 string = "http://localhost:8000"
 AiEngineRequestTimeout      int    = 5   // seconds
 ServerShutdownTimeout       int    = 30  // seconds
 ReadHeaderTimeout           int    = 2   // seconds

@@ -135,7 +135,7 @@ func aiEngineResponseHandler(aierChan chan<- types.AIEngineResponse) http.Handle
 		}
 
 		actualSig := r.Header.Get("HMAC-Signature-256")
-		verified, err := verifyMessage(body, config.AIEngineSecret, actualSig)
+		verified, err := verifyMessage(body, config.InternalSecret, actualSig)
 		if err != nil {
 			slog.Error("Failed to verify message", "error", err)
 			return
@@ -186,12 +186,12 @@ func SendRequestAIEngine(ctx context.Context, jobType string, req types.AIEngine
 		return fmt.Errorf("Failed to marshal the message package: %w", err)
 	}
 	msgReader := bytes.NewReader(msgBytes)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://%s:%s", config.AIEngineHost, config.AIEnginePort), msgReader)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, config.AIEngineURL, msgReader)
 	if err != nil {
 		return fmt.Errorf("Failed to create http request: %w", err)
 	}
 
-	hmacSig, err := generateHMAC(msgBytes, config.AIEngineSecret)
+	hmacSig, err := generateHMAC(msgBytes, config.InternalSecret)
 	if err != nil {
 		return fmt.Errorf("Failed to generate HMAC: %w", err)
 	}
@@ -216,7 +216,6 @@ func SendRequestAIEngine(ctx context.Context, jobType string, req types.AIEngine
 
 // Posts a comment on the pull request for the results of the test.
 func PostSummaryComment(ctx context.Context, commentsURL string, body string) (err error) {
-	// TODO: unimplemented
 	cli := http.Client{
 		Timeout: seconds(config.RequestTimeout),
 	}
@@ -249,7 +248,7 @@ func StartServer(ctx context.Context, prChan chan<- types.PullRequest, aierChan 
 	// initialize server
 	mux := http.NewServeMux()
 	mux.Handle("/", http.HandlerFunc(whHandler(prChan, pc)))
-	mux.Handle("/patch", http.HandlerFunc(aiEngineResponseHandler(aierChan)))
+	mux.Handle("/aiengine", http.HandlerFunc(aiEngineResponseHandler(aierChan)))
 
 	port := fmt.Sprintf(":%s", config.Port)
 	server := &http.Server{
