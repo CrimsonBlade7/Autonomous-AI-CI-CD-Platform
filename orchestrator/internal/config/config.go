@@ -19,9 +19,8 @@ var (
 	GithubToken             string
 	RepositoryUrl           string
 	GithubSecret            string
-	AIEngineSecret          string
-	AIEngineHost            string = "localhost"
-	AIEnginePort            string = "8000"
+	InternalSecret          string
+	AIEngineURL             string = "http://localhost:8000"
 	RequestTimeout          int    = 5   // seconds
 	ServerShutdownTimeout   int    = 30  // seconds
 	ReadHeaderTimeout       int    = 2   // seconds
@@ -109,18 +108,14 @@ func loadEnv() error {
 	GithubToken = os.Getenv("GITHUB_TOKEN")
 	RepositoryUrl = os.Getenv("GITHUB_REPOSITORY_URL")
 	GithubSecret = os.Getenv("GITHUB_WEBHOOK_SECRET")
-	AIEngineSecret = os.Getenv("AI_ENGINE_SECRET")
+	InternalSecret = os.Getenv("INTERNAL_SECRET")
 
 	if p := os.Getenv("PORT"); p != "" {
 		Port = p
 	}
 
-	if aiHost := os.Getenv("AI_ENGINE_HOST"); aiHost != "" {
-		AIEngineHost = aiHost
-	}
-
-	if aiPort := os.Getenv("AI_ENGINE_PORT"); aiPort != "" {
-		AIEnginePort = aiPort
+	if aiURL := os.Getenv("AI_ENGINE_URL"); aiURL != "" {
+		AIEngineURL = aiURL
 	}
 
 	// Optional numeric overrides from environment
@@ -156,7 +151,7 @@ func loadEnv() error {
 	if valAiTimeout := os.Getenv("AI_ENGINE_REQUEST_CLOSE_TIMEOUT"); valAiTimeout != "" {
 		parsedVal, err := strconv.Atoi(valAiTimeout)
 		if err == nil {
-			RequestTimeout = parsedVal
+			RequestCloseTimeout = parsedVal
 		}
 	}
 
@@ -204,8 +199,8 @@ func validateConfig() error {
 	if GithubSecret == "" {
 		missing = append(missing, "GITHUB_WEBHOOK_SECRET")
 	}
-	if AIEngineSecret == "" {
-		missing = append(missing, "AI_ENGINE_SECRET")
+	if InternalSecret == "" {
+		missing = append(missing, "INTERNAL_SECRET")
 	}
 
 	if len(missing) > 0 {

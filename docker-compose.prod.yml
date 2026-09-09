@@ -3,13 +3,7 @@ services:
     build: ./orchestrator
     ports:
       - "8080:8080"
-    environment:
-      AI_ENGINE_HOST: ai-service
-      AI_ENGINE_PORT: "8000"
-      GITHUB_TOKEN: ${GITHUB_TOKEN}
-      GITHUB_REPOSITORY_URL: ${GITHUB_REPOSITORY_URL}
-      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
-      AI_ENGINE_SECRET: ${AI_ENGINE_SECRET}
+    env_file: .env
     volumes:
       # Docker-outside-of-Docker: orchestrator controls the HOST daemon.
       # On Linux this usually needs the container's user in the `docker`
@@ -17,13 +11,15 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - ai-service
+    develop:
+      watch:
+        - action: rebuild
+          path: ./src
 
   # Now that orchestrator is on the compose network, ai-service/celery
   # can reach it by service name instead of host.docker.internal.
   ai-service:
-    environment:
-      ORCHESTRATOR_URL: http://orchestrator:8080
+    env_file: .env
 
   celery-worker:
-    environment:
-      ORCHESTRATOR_URL: http://orchestrator:8080
+    env_file: .env
