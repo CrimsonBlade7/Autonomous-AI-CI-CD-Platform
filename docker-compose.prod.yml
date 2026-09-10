@@ -14,7 +14,7 @@ services:
     develop:
       watch:
         - action: rebuild
-          path: ./src
+          path: ./orchestrator
 
   # Now that orchestrator is on the compose network, ai-service/celery
   # can reach it by service name instead of host.docker.internal.

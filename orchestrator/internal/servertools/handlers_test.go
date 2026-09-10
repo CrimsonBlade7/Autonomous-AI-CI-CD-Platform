@@ -170,10 +170,11 @@ func TestSendRequestAIEngine_InvalidJobType(t *testing.T) {
 }
 
 func TestPostSummaryComment_Success(t *testing.T) {
-	prevToken, prevTimeout := config.GithubToken, config.RequestTimeout
+	prevToken, prevTimeout, prevRepoURL := config.GithubToken, config.RequestTimeout, config.RepositoryUrl
 	t.Cleanup(func() {
 		config.GithubToken = prevToken
 		config.RequestTimeout = prevTimeout
+		config.RepositoryUrl = prevRepoURL
 	})
 	config.GithubToken = "gh-token"
 	config.RequestTimeout = 2
@@ -201,6 +202,7 @@ func TestPostSummaryComment_Success(t *testing.T) {
 		w.WriteHeader(http.StatusCreated)
 	}))
 	t.Cleanup(srv.Close)
+	config.RepositoryUrl = srv.URL
 
 	body := `{"body":"summary"}`
 	if err := PostSummaryComment(context.Background(), srv.URL, body); err != nil {
@@ -225,10 +227,11 @@ func TestPostSummaryComment_Success(t *testing.T) {
 }
 
 func TestPostSummaryComment_BadStatus(t *testing.T) {
-	prevToken, prevTimeout := config.GithubToken, config.RequestTimeout
+	prevToken, prevTimeout, prevRepoURL := config.GithubToken, config.RequestTimeout, config.RepositoryUrl
 	t.Cleanup(func() {
 		config.GithubToken = prevToken
 		config.RequestTimeout = prevTimeout
+		config.RepositoryUrl = prevRepoURL
 	})
 	config.GithubToken = "gh-token"
 	config.RequestTimeout = 2
@@ -238,6 +241,7 @@ func TestPostSummaryComment_BadStatus(t *testing.T) {
 		_, _ = w.Write([]byte("server exploded"))
 	}))
 	t.Cleanup(srv.Close)
+	config.RepositoryUrl = srv.URL
 
 	err := PostSummaryComment(context.Background(), srv.URL, `{"body":"summary"}`)
 	if err == nil {

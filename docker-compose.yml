@@ -42,7 +42,7 @@ services:
     develop:
       watch:
         - action: rebuild
-          path: ./src
+          path: ./ai_engine
 
   celery-worker:
     build: ./ai_engine

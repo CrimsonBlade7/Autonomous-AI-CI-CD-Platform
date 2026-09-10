@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/url"
 	"net/http"
 	"os"
 	"os/signal"
@@ -214,8 +215,30 @@ func SendRequestAIEngine(ctx context.Context, jobType string, req types.AIEngine
 	return nil
 }
 
+func isTrustedCommentsURL(commentsURL string) bool {
+	commentsParsed, err := url.Parse(commentsURL)
+	if err != nil || commentsParsed.Host == "" {
+		return false
+	}
+
+	repoParsed, err := url.Parse(config.RepositoryUrl)
+	if err != nil || repoParsed.Host == "" {
+		return false
+	}
+
+	if commentsParsed.Host == repoParsed.Host {
+		return true
+	}
+
+	return repoParsed.Host == "github.com" && commentsParsed.Host == "api.github.com"
+}
+
 // Posts a comment on the pull request for the results of the test.
 func PostSummaryComment(ctx context.Context, commentsURL string, body string) (err error) {
+	if !isTrustedCommentsURL(commentsURL) {
+		return fmt.Errorf("Untrusted comments URL host")
+	}
+
 	cli := http.Client{
 		Timeout: seconds(config.RequestTimeout),
 	}
