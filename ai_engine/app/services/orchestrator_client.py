@@ -20,7 +20,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-_PATCH_PATH = "/patch"
+_AI_ENGINE_CALLBACK_PATH = "/aiengine"
 
 
 def _sign(body: bytes) -> str:
@@ -36,7 +36,7 @@ async def send_response(
     tests: bytes = b"",
     summary: str = "",
 ) -> None:
-    """POST an AIEngineResponse to the orchestrator /patch endpoint."""
+    """POST an AIEngineResponse to the orchestrator /aiengine endpoint."""
     payload = {
         "Wfid": wfid,
         "PullRequest": pull_request,
@@ -47,7 +47,7 @@ async def send_response(
     }
     body = json.dumps(payload).encode()
 
-    url = f"{settings.orchestrator_url}{_PATCH_PATH}"
+    url = f"{settings.orchestrator_url}{_AI_ENGINE_CALLBACK_PATH}"
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.post(
             url,

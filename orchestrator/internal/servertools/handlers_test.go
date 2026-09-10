@@ -131,7 +131,7 @@ func TestAIEngineResponseHandler_AcceptsValidPayload(t *testing.T) {
 	}
 
 	ch := make(chan *types.AIEngineResponse, 1)
-	req := httptest.NewRequest(http.MethodPost, "/patch", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/aiengine", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("HMAC-Signature-256", sig)
 	rr := httptest.NewRecorder()
@@ -152,7 +152,7 @@ func TestAIEngineResponseHandler_Unauthorized(t *testing.T) {
 	t.Cleanup(func() { config.InternalSecret = prev })
 	config.InternalSecret = "aisec"
 
-	req := httptest.NewRequest(http.MethodPost, "/patch", bytes.NewReader([]byte(`{"Wfid":1}`)))
+	req := httptest.NewRequest(http.MethodPost, "/aiengine", bytes.NewReader([]byte(`{"Wfid":1}`)))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("HMAC-Signature-256", "nope")
 	rr := httptest.NewRecorder()
