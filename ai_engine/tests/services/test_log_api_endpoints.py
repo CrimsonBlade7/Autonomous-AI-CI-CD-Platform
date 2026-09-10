@@ -10,6 +10,35 @@ from app.services.log_response import create_log_response
 client = TestClient(app)
 
 
+def test_job_endpoint_accepts_orchestrator_payload():
+    payload = {
+        "Wfid": 987654,
+        "PullRequest": {
+            "number": 42,
+            "action": "edited",
+            "branch": "test-delivery",
+            "title": "delivery probe",
+            "body": "",
+            "headsha": "abc",
+            "basesha": "def",
+            "merged": False,
+        },
+        "Stdout": "",
+        "Stderr": "",
+        "StartTime": "",
+        "EndTime": "",
+        "Errors": "",
+        "Status": "",
+        "OOMKilled": False,
+        "ExitCode": 0,
+    }
+
+    response = client.post("/", json=payload, headers={"Job-Type": "edit"})
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 @pytest.fixture(autouse=True)
 def celery_task(monkeypatch):
     job_id = "550e8400-e29b-41d4-a716-446655440000"
