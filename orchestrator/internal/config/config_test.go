@@ -20,15 +20,15 @@ func TestRelToAbsPath(t *testing.T) {
 }
 
 func TestValidateConfig_MissingRequired(t *testing.T) {
-	prevToken, prevURL, prevGH, prevAI := GithubToken, RepositoryUrl, GithubSecret, AIEngineSecret
+	prevToken, prevURL, prevGH, prevAI := GithubToken, RepositoryUrl, GithubSecret, InternalSecret
 	t.Cleanup(func() {
-		GithubToken, RepositoryUrl, GithubSecret, AIEngineSecret = prevToken, prevURL, prevGH, prevAI
+		GithubToken, RepositoryUrl, GithubSecret, InternalSecret = prevToken, prevURL, prevGH, prevAI
 	})
 
 	GithubToken = ""
 	RepositoryUrl = ""
 	GithubSecret = ""
-	AIEngineSecret = ""
+	InternalSecret = ""
 
 	err := validateConfig()
 	if err == nil {
@@ -43,18 +43,44 @@ func TestValidateConfig_MissingRequired(t *testing.T) {
 }
 
 func TestValidateConfig_OK(t *testing.T) {
-	prevToken, prevURL, prevGH, prevAI := GithubToken, RepositoryUrl, GithubSecret, AIEngineSecret
+	prevToken, prevURL, prevGH, prevAI := GithubToken, RepositoryUrl, GithubSecret, InternalSecret
 	t.Cleanup(func() {
-		GithubToken, RepositoryUrl, GithubSecret, AIEngineSecret = prevToken, prevURL, prevGH, prevAI
+		GithubToken, RepositoryUrl, GithubSecret, InternalSecret = prevToken, prevURL, prevGH, prevAI
 	})
 
 	GithubToken = "t"
 	RepositoryUrl = "https://example.com/repo.git"
 	GithubSecret = "s"
-	AIEngineSecret = "a"
+	InternalSecret = "a"
 
 	if err := validateConfig(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestLoadEnv_LoadsAIEngineAndTimeoutSettings(t *testing.T) {
+	previousRoot := OrchRootDir
+	previousURL := AIEngineURL
+	previousRequestTimeout, previousCloseTimeout := RequestTimeout, RequestCloseTimeout
+	t.Cleanup(func() {
+		OrchRootDir = previousRoot
+		AIEngineURL = previousURL
+		RequestTimeout, RequestCloseTimeout = previousRequestTimeout, previousCloseTimeout
+	})
+
+	OrchRootDir = t.TempDir()
+	t.Setenv("AI_ENGINE_URL", "http://ai-service:9000")
+	t.Setenv("REQUEST_TIMEOUT", "12")
+	t.Setenv("AI_ENGINE_REQUEST_CLOSE_TIMEOUT", "34")
+
+	if err := loadEnv(); err != nil {
+		t.Fatalf("loadEnv: %v", err)
+	}
+	if AIEngineURL != "http://ai-service:9000" {
+		t.Errorf("AI engine URL = %q", AIEngineURL)
+	}
+	if RequestTimeout != 12 || RequestCloseTimeout != 34 {
+		t.Errorf("timeouts = request %d, close %d", RequestTimeout, RequestCloseTimeout)
 	}
 }
 

@@ -14,24 +14,23 @@ import (
 var (
 	WsDir string
 
-	OrchRootDir                 string
-	Port                        string = "8080"
-	GithubToken                 string
-	RepositoryUrl               string
-	GithubSecret                string
-	AIEngineSecret              string
-	AIEngineHost                string = "localhost"
-	AIEnginePort                string = "8001"
-	AiEngineRequestTimeout      int    = 5   // seconds
-	ServerShutdownTimeout       int    = 30  // seconds
-	ReadHeaderTimeout           int    = 2   // seconds
-	WriteTimeout                int    = 5   // seconds
-	ContainerTimeout            int    = 10  // minutes
-	AIEngineRequestCloseTimeout int    = 10  // seconds
-	DockerStartTimeout          int    = 10  // seconds
-	ContainerMemoryCap          int    = 512 // MB
-	MaxTestPatchingAttempts     int    = 10
-	TestingEnvSlice             []string
+	OrchRootDir             string
+	Port                    string = "8080"
+	GithubToken             string
+	RepositoryUrl           string
+	GithubSecret            string
+	InternalSecret          string
+	AIEngineURL             string = "http://localhost:8000"
+	RequestTimeout          int    = 5   // seconds
+	ServerShutdownTimeout   int    = 30  // seconds
+	ReadHeaderTimeout       int    = 2   // seconds
+	WriteTimeout            int    = 5   // seconds
+	ContainerTimeout        int    = 10  // minutes
+	RequestCloseTimeout     int    = 10  // seconds
+	DockerStartTimeout      int    = 10  // seconds
+	ContainerMemoryCap      int    = 512 // MB
+	MaxTestPatchingAttempts int    = 10
+	TestingEnvSlice         []string
 )
 
 const (
@@ -109,26 +108,22 @@ func loadEnv() error {
 	GithubToken = os.Getenv("GITHUB_PAT")
 	RepositoryUrl = os.Getenv("GITHUB_REPOSITORY_URL")
 	GithubSecret = os.Getenv("GITHUB_WEBHOOK_SECRET")
-	AIEngineSecret = os.Getenv("AI_ENGINE_SECRET")
+	InternalSecret = os.Getenv("INTERNAL_SECRET")
 
 	if p := os.Getenv("PORT"); p != "" {
 		Port = p
 	}
 
-	if aiHost := os.Getenv("AI_ENGINE_HOST"); aiHost != "" {
-		AIEngineHost = aiHost
-	}
-
-	if aiPort := os.Getenv("AI_ENGINE_PORT"); aiPort != "" {
-		AIEnginePort = aiPort
+	if aiURL := os.Getenv("AI_ENGINE_URL"); aiURL != "" {
+		AIEngineURL = aiURL
 	}
 
 	// Optional numeric overrides from environment
 
-	if valAiTimeout := os.Getenv("AI_ENGINE_REQUEST_TIMEOUT"); valAiTimeout != "" {
+	if valAiTimeout := os.Getenv("REQUEST_TIMEOUT"); valAiTimeout != "" {
 		parsedVal, err := strconv.Atoi(valAiTimeout)
 		if err == nil {
-			AiEngineRequestTimeout = parsedVal
+			RequestTimeout = parsedVal
 		}
 	}
 
@@ -156,7 +151,7 @@ func loadEnv() error {
 	if valAiTimeout := os.Getenv("AI_ENGINE_REQUEST_CLOSE_TIMEOUT"); valAiTimeout != "" {
 		parsedVal, err := strconv.Atoi(valAiTimeout)
 		if err == nil {
-			AiEngineRequestTimeout = parsedVal
+			RequestCloseTimeout = parsedVal
 		}
 	}
 
@@ -204,8 +199,8 @@ func validateConfig() error {
 	if GithubSecret == "" {
 		missing = append(missing, "GITHUB_WEBHOOK_SECRET")
 	}
-	if AIEngineSecret == "" {
-		missing = append(missing, "AI_ENGINE_SECRET")
+	if InternalSecret == "" {
+		missing = append(missing, "INTERNAL_SECRET")
 	}
 
 	if len(missing) > 0 {

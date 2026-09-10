@@ -6,14 +6,15 @@ import (
 )
 
 type PullRequest struct {
-	Number  int    `json:"number"`
-	Action  string `json:"action"`
-	Branch  string `json:"branch"`
-	Title   string `json:"title"`
-	Body    string `json:"body"`
-	HeadSHA string `json:"headsha"`
-	BaseSHA string `json:"basesha"`
-	Merged  bool   `json:"merged"`
+	Number      int    `json:"number"`
+	Action      string `json:"action"`
+	Branch      string `json:"branch"`
+	Title       string `json:"title"`
+	Body        string `json:"body"`
+	HeadSHA     string `json:"headsha"`
+	BaseSHA     string `json:"basesha"`
+	Merged      bool   `json:"merged"`
+	CommentsURL string `json:"url"`
 }
 
 // Populates fields from a byte slice
@@ -31,7 +32,8 @@ func (pr *PullRequest) UnmarshalPullRequest(data []byte) (err error) {
 			Base struct {
 				Sha string `json:"sha"`
 			} `json:"base"`
-			Merged bool `json:"merged"`
+			Merged      bool   `json:"merged"`
+			CommentsURL string `json:"comments_url"`
 		} `json:"pull_request"`
 	}
 
@@ -47,6 +49,7 @@ func (pr *PullRequest) UnmarshalPullRequest(data []byte) (err error) {
 	pr.HeadSHA = temp.PullRequest.Head.Sha
 	pr.BaseSHA = temp.PullRequest.Base.Sha
 	pr.Merged = temp.PullRequest.Merged
+	pr.CommentsURL = temp.PullRequest.CommentsURL
 
 	return nil
 }

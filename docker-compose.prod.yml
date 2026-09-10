@@ -1,0 +1,25 @@
+services:
+  orchestrator:
+    build: ./orchestrator
+    ports:
+      - "8080:8080"
+    env_file: .env
+    volumes:
+      # Docker-outside-of-Docker: orchestrator controls the HOST daemon.
+      # On Linux this usually needs the container's user in the `docker`
+      # group, or running privileged, to have permission on the socket.
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - ai-service
+    develop:
+      watch:
+        - action: rebuild
+          path: ./src
+
+  # Now that orchestrator is on the compose network, ai-service/celery
+  # can reach it by service name instead of host.docker.internal.
+  ai-service:
+    env_file: .env
+
+  celery-worker:
+    env_file: .env

@@ -31,9 +31,14 @@ func samplePR(action string) types.PullRequest {
 	}
 }
 
+func samplePRPtr(action string) *types.PullRequest {
+	pr := samplePR(action)
+	return &pr
+}
+
 func TestWorkflowTrySendAndIsRunning(t *testing.T) {
 	errCh := make(chan ErrorObject, 1)
-	wf := newWorkflow(samplePR("opened"), errCh)
+	wf := newWorkflow(samplePRPtr("opened"), errCh)
 
 	if !wf.isRunning() {
 		t.Fatal("new workflow should be running")
@@ -62,7 +67,7 @@ func TestWorkflowTrySendAndIsRunning(t *testing.T) {
 }
 
 func TestWorkflowPathAndCleanupAccessors(t *testing.T) {
-	wf := newWorkflow(samplePR("opened"), make(chan ErrorObject, 1))
+	wf := newWorkflow(samplePRPtr("opened"), make(chan ErrorObject, 1))
 	wf.SetPath("/tmp/ws")
 	if wf.GetPath() != "/tmp/ws" {
 		t.Errorf("path = %q", wf.GetPath())
@@ -83,7 +88,7 @@ func TestWorkflowPathAndCleanupAccessors(t *testing.T) {
 }
 
 func TestSendUpdatesToRemote(t *testing.T) {
-	wf := newWorkflow(samplePR("opened"), make(chan ErrorObject, 1))
+	wf := newWorkflow(samplePRPtr("opened"), make(chan ErrorObject, 1))
 	wf.workspace.path = "/ws"
 
 	sha, err := wf.SendUpdatesToRemote(stubGit{sha: "newsha"})
@@ -101,12 +106,12 @@ func TestSendUpdatesToRemote(t *testing.T) {
 }
 
 func TestRunWorkflow_CancelDoesNotDoubleClose(t *testing.T) {
-	prevTimeout := config.AIEngineRequestCloseTimeout
-	t.Cleanup(func() { config.AIEngineRequestCloseTimeout = prevTimeout })
-	config.AIEngineRequestCloseTimeout = 0
+	prevTimeout := config.RequestCloseTimeout
+	t.Cleanup(func() { config.RequestCloseTimeout = prevTimeout })
+	config.RequestCloseTimeout = 0
 
 	errCh := make(chan ErrorObject, 2)
-	wf := newWorkflow(samplePR("opened"), errCh)
+	wf := newWorkflow(samplePRPtr("opened"), errCh)
 	wf.workspace.removeWorkspace = func() error { return nil }
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -136,7 +141,7 @@ func TestRunWorkflow_CancelDoesNotDoubleClose(t *testing.T) {
 
 func TestWorkflowManagerGetSetRemove(t *testing.T) {
 	wfm := NewWorkflowManager()
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() {}})
 
 	got, ok := wfm.Get(42)
@@ -165,28 +170,28 @@ func drainJobs(wf *Workflow) (stop func()) {
 
 func TestHandlePullRequest_EditedAndSynchronize(t *testing.T) {
 	wfm := NewWorkflowManager()
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	stop := drainJobs(wf)
 	t.Cleanup(stop)
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() {}})
 
-	if err := wfm.handlePullRequest(context.Background(), nil, samplePR("edited"), types.NewPushedCommits()); err != nil {
+	if err := wfm.handlePullRequest(context.Background(), nil, samplePRPtr("edited"), types.NewPushedCommits()); err != nil {
 		t.Fatalf("edited: %v", err)
 	}
-	if err := wfm.handlePullRequest(context.Background(), nil, samplePR("synchronize"), types.NewPushedCommits()); err != nil {
+	if err := wfm.handlePullRequest(context.Background(), nil, samplePRPtr("synchronize"), types.NewPushedCommits()); err != nil {
 		t.Fatalf("synchronize: %v", err)
 	}
 }
 
 func TestHandlePullRequest_ClosedMergedRemovesWorkflow(t *testing.T) {
 	wfm := NewWorkflowManager()
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	cancelled := false
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() { cancelled = true }})
 
 	pr := samplePR("closed")
 	pr.Merged = true
-	if err := wfm.handlePullRequest(context.Background(), nil, pr, types.NewPushedCommits()); err != nil {
+	if err := wfm.handlePullRequest(context.Background(), nil, &pr, types.NewPushedCommits()); err != nil {
 		t.Fatal(err)
 	}
 	if !cancelled {
@@ -199,10 +204,10 @@ func TestHandlePullRequest_ClosedMergedRemovesWorkflow(t *testing.T) {
 
 func TestHandlePullRequest_ClosedUnmergedKeepsWorkflow(t *testing.T) {
 	wfm := NewWorkflowManager()
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() {}})
 
-	if err := wfm.handlePullRequest(context.Background(), nil, samplePR("closed"), types.NewPushedCommits()); err != nil {
+	if err := wfm.handlePullRequest(context.Background(), nil, samplePRPtr("closed"), types.NewPushedCommits()); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := wfm.Get(42); !ok {
@@ -212,11 +217,11 @@ func TestHandlePullRequest_ClosedUnmergedKeepsWorkflow(t *testing.T) {
 
 func TestHandlePullRequest_RejectsActionsOnStoppedWorkflow(t *testing.T) {
 	wfm := NewWorkflowManager()
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	close(wf.done)
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() {}})
 
-	err := wfm.handlePullRequest(context.Background(), nil, samplePR("edited"), types.NewPushedCommits())
+	err := wfm.handlePullRequest(context.Background(), nil, samplePRPtr("edited"), types.NewPushedCommits())
 	if err == nil {
 		t.Fatal("expected error for edited on stopped workflow")
 	}
@@ -224,10 +229,10 @@ func TestHandlePullRequest_RejectsActionsOnStoppedWorkflow(t *testing.T) {
 
 func TestHandlePullRequest_RejectsReopenedWhileRunning(t *testing.T) {
 	wfm := NewWorkflowManager()
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() {}})
 
-	err := wfm.handlePullRequest(context.Background(), nil, samplePR("reopened"), types.NewPushedCommits())
+	err := wfm.handlePullRequest(context.Background(), nil, samplePRPtr("reopened"), types.NewPushedCommits())
 	if err == nil {
 		t.Fatal("expected error for reopened while running")
 	}
@@ -235,7 +240,7 @@ func TestHandlePullRequest_RejectsReopenedWhileRunning(t *testing.T) {
 
 func TestHandlePullRequest_DuplicateOpenedPanics(t *testing.T) {
 	wfm := NewWorkflowManager()
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() {}})
 
 	defer func() {
@@ -243,7 +248,7 @@ func TestHandlePullRequest_DuplicateOpenedPanics(t *testing.T) {
 			t.Fatal("expected panic")
 		}
 	}()
-	_ = wfm.handlePullRequest(context.Background(), nil, samplePR("opened"), types.NewPushedCommits())
+	_ = wfm.handlePullRequest(context.Background(), nil, samplePRPtr("opened"), types.NewPushedCommits())
 }
 
 func TestHandlePullRequest_MissingWorkflowIgnored(t *testing.T) {
@@ -258,9 +263,9 @@ func TestHandlePullRequest_MissingWorkflowIgnored(t *testing.T) {
 
 func TestHandlePullRequest_UnsupportedAction(t *testing.T) {
 	wfm := NewWorkflowManager()
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() {}})
-	if err := wfm.handlePullRequest(context.Background(), nil, samplePR("assigned"), types.NewPushedCommits()); err != nil {
+	if err := wfm.handlePullRequest(context.Background(), nil, samplePRPtr("assigned"), types.NewPushedCommits()); err != nil {
 		t.Fatal(err)
 	}
 }

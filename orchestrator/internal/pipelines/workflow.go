@@ -16,12 +16,11 @@ import (
 	"github.com/benl1006/Autonomous-CI-Platform/orchestrator/internal/servertools"
 	"github.com/benl1006/Autonomous-CI-Platform/orchestrator/internal/types"
 	"github.com/benl1006/Autonomous-CI-Platform/orchestrator/internal/wstools"
-	dockerClient "github.com/moby/moby/client"
 )
 
 type Workflow struct {
 	wfid             int // The pr number.
-	pullRequest      types.PullRequest
+	pullRequest      *types.PullRequest
 	jobs             chan Job
 	workspace        Workspace
 	workspaceMutex   sync.RWMutex
@@ -54,7 +53,7 @@ type Job struct {
 
 // Creates a new workflow. Path, cleanWs, and cancelWf function are are uninitialized by default.
 // Path and cleanup are initialized by the OPEN job.
-func newWorkflow(pr types.PullRequest, errChan chan<- ErrorObject) *Workflow {
+func newWorkflow(pr *types.PullRequest, errChan chan<- ErrorObject) *Workflow {
 	return &Workflow{
 		wfid:         pr.Number,
 		pullRequest:  pr,
@@ -108,7 +107,7 @@ func (wf *Workflow) isRunning() bool {
 }
 
 // Starts the job pipeline. Handles incoming jobs. Blocks until an error occurs.
-func (wf *Workflow) runWorkflow(ctx context.Context, cli *dockerClient.Client, pc *types.PushedCommits) {
+func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClient, pc *types.PushedCommits) {
 	defer close(wf.done)
 	for {
 		select {
@@ -122,7 +121,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli *dockerClient.Client, p
 					return
 				}
 			}
-			newCtx, cancel := context.WithTimeout(context.Background(), time.Duration(config.AIEngineRequestCloseTimeout)*time.Second)
+			newCtx, cancel := context.WithTimeout(context.Background(), time.Duration(config.RequestCloseTimeout)*time.Second)
 			defer cancel()
 			if err := servertools.SendRequestAIEngine(newCtx, "close", types.AIEngineRequest{Wfid: wf.wfid}); err != nil {
 				wf.errorChannel <- ErrorObject{
@@ -137,7 +136,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli *dockerClient.Client, p
 			switch job.JobType {
 			case "open":
 				wf.attemptNum = 0
-				path, clean, err := wstools.InitWorkspace(ctx, wf.pullRequest, &wstools.GithubClient{})
+				path, clean, err := wstools.InitWorkspace(ctx, *wf.pullRequest, &wstools.GithubClient{})
 				if err != nil {
 					var cleanerr error
 					if clean != nil {
@@ -156,7 +155,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli *dockerClient.Client, p
 
 				if err = servertools.SendRequestAIEngine(ctx, "open", types.AIEngineRequest{
 					Wfid:        wf.wfid,
-					PullRequest: wf.pullRequest,
+					PullRequest: *wf.pullRequest,
 				}); err != nil {
 					wf.errorChannel <- ErrorObject{
 						wfid: wf.wfid,
@@ -172,7 +171,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli *dockerClient.Client, p
 					panic("EDIT or SYNC should always come from a pull request.")
 				}
 
-				wf.pullRequest = *pr
+				wf.pullRequest = pr
 
 				// May be redundant, but exists just in case the types are relabled.
 				var jt string
@@ -198,7 +197,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli *dockerClient.Client, p
 				if aier == nil {
 					panic("RUN_TESTS should always come from a pull request.")
 				}
-				if aier.PullRequest != wf.pullRequest {
+				if aier.PullRequest != *wf.pullRequest {
 					// Drop aier response if the pull requests do not match by value
 					continue
 				}
@@ -286,7 +285,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli *dockerClient.Client, p
 				if err := wstools.WriteSummary(filepath.Join(wf.workspace.path, "summary.md"), summary); err != nil {
 					wf.errorChannel <- ErrorObject{
 						wfid: wf.wfid,
-						err:  fmt.Errorf("Failed to write summary: %w", err),
+						err:  fmt.Errorf("Failed to write summary comment: %w", err),
 					}
 					continue
 				}
@@ -307,10 +306,10 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli *dockerClient.Client, p
 }
 
 // Creates a container, runs it, and removes it. Returns a ContainerInspection, stdout, stderr, and an error.
-func processContainer(ctx context.Context, tag string, command []string, cli *dockerClient.Client) (inspect dockertools.ContainerInspection, logOutString string, logErrString string, err error) {
+func processContainer(ctx context.Context, tag string, cmd []string, cli dockertools.DockerClient) (inspect dockertools.ContainerInspection, logOutString string, logErrString string, err error) {
 	subContext, cancel := context.WithTimeout(ctx, time.Duration(config.ContainerTimeout)*time.Minute)
 	defer cancel()
-	contID, logOut, logErr, err := dockertools.RunContainer(subContext, cli, tag, command)
+	contID, logOut, logErr, err := dockertools.RunContainer(subContext, cli, tag, cmd)
 	if err != nil {
 		return dockertools.ContainerInspection{}, "", "", fmt.Errorf("Failed to build container: %w", err)
 	}

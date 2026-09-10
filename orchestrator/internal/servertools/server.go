@@ -22,6 +22,8 @@ import (
 	"github.com/benl1006/Autonomous-CI-Platform/orchestrator/internal/types"
 )
 
+const githubAPIVersion = "2026-03-10"
+
 // Generates the HMAC key based on the message and secret
 func generateHMAC(message []byte, secret string) (string, error) {
 	hash := hmac.New(sha256.New, []byte(secret))
@@ -47,7 +49,7 @@ func seconds(n int) time.Duration {
 }
 
 // Github webhook handler
-func whHandler(prChan chan<- types.PullRequest, pc *types.PushedCommits) http.HandlerFunc {
+func whHandler(prChan chan<- *types.PullRequest, pc *types.PushedCommits) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			closeErr := r.Body.Close()
@@ -102,13 +104,12 @@ func whHandler(prChan chan<- types.PullRequest, pc *types.PushedCommits) http.Ha
 		}
 
 		slog.Info("Webhook recieved", "pull request", pr)
-		prChan <- pr
-
+		prChan <- &pr
 	}
 }
 
 // Handles responses from the AI Engine and sends response to respChannel.
-func aiEngineResponseHandler(aierChan chan<- types.AIEngineResponse) http.HandlerFunc {
+func aiEngineResponseHandler(aierChan chan<- *types.AIEngineResponse) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if closeErr := r.Body.Close(); closeErr != nil {
@@ -133,7 +134,7 @@ func aiEngineResponseHandler(aierChan chan<- types.AIEngineResponse) http.Handle
 		}
 
 		actualSig := r.Header.Get("HMAC-Signature-256")
-		verified, err := verifyMessage(body, config.AIEngineSecret, actualSig)
+		verified, err := verifyMessage(body, config.InternalSecret, actualSig)
 		if err != nil {
 			slog.Error("Failed to verify message", "error", err)
 			return
@@ -150,8 +151,8 @@ func aiEngineResponseHandler(aierChan chan<- types.AIEngineResponse) http.Handle
 			slog.Error("Could not unmarshal the data into a type.Response", "error", err)
 			return
 		}
-
-		aierChan <- resp
+		slog.Info("AI Engine response recived", "aier", resp)
+		aierChan <- &resp
 	}
 }
 
@@ -176,7 +177,7 @@ func SendRequestAIEngine(ctx context.Context, jobType string, req types.AIEngine
 	}
 
 	cli := http.Client{
-		Timeout: seconds(config.AiEngineRequestTimeout),
+		Timeout: seconds(config.RequestTimeout),
 	}
 
 	msgBytes, err := json.Marshal(req)
@@ -184,12 +185,12 @@ func SendRequestAIEngine(ctx context.Context, jobType string, req types.AIEngine
 		return fmt.Errorf("Failed to marshal the message package: %w", err)
 	}
 	msgReader := bytes.NewReader(msgBytes)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://%s:%s", config.AIEngineHost, config.AIEnginePort), msgReader)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, config.AIEngineURL, msgReader)
 	if err != nil {
 		return fmt.Errorf("Failed to create http request: %w", err)
 	}
 
-	hmacSig, err := generateHMAC(msgBytes, config.AIEngineSecret)
+	hmacSig, err := generateHMAC(msgBytes, config.InternalSecret)
 	if err != nil {
 		return fmt.Errorf("Failed to generate HMAC: %w", err)
 	}
@@ -209,16 +210,46 @@ func SendRequestAIEngine(ctx context.Context, jobType string, req types.AIEngine
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("Bad response, status: %v", resp.StatusCode)
 	}
+	slog.Info("Request sent to AI engine", "jobtype", jobType, "aier", req)
+	return nil
+}
+
+// Posts a comment on the pull request for the results of the test.
+func PostSummaryComment(ctx context.Context, commentsURL string, body string) (err error) {
+	cli := http.Client{
+		Timeout: seconds(config.RequestTimeout),
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, commentsURL, strings.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("Failed to create http request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+config.GithubToken)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", githubAPIVersion)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := cli.Do(req)
+	if err != nil {
+		return fmt.Errorf("Failed to send http request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("Unexpected status code %v posting comment: %s", resp.StatusCode, respBody)
+	}
+
+	slog.Info("Summary comment posted", "comment", body)
 	return nil
 }
 
 // Starts the http server.
-func StartServer(ctx context.Context, prChan chan<- types.PullRequest, aierChan chan<- types.AIEngineResponse, pc *types.PushedCommits) (err error) {
+func StartServer(ctx context.Context, prChan chan<- *types.PullRequest, aierChan chan<- *types.AIEngineResponse, pc *types.PushedCommits) (err error) {
 
 	// initialize server
 	mux := http.NewServeMux()
 	mux.Handle("/", http.HandlerFunc(whHandler(prChan, pc)))
-	mux.Handle("/patch", http.HandlerFunc(aiEngineResponseHandler(aierChan)))
+	mux.Handle("/aiengine", http.HandlerFunc(aiEngineResponseHandler(aierChan)))
 
 	port := fmt.Sprintf(":%s", config.Port)
 	server := &http.Server{
