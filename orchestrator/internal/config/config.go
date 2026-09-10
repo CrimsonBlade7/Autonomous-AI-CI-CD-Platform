@@ -105,7 +105,7 @@ func loadEnv() error {
 	}
 
 	// Environment variable assignments with fallback defaults
-	GithubToken = os.Getenv("GITHUB_PAT")
+	GithubToken = os.Getenv("GITHUB_TOKEN")
 	RepositoryUrl = os.Getenv("GITHUB_REPOSITORY_URL")
 	GithubSecret = os.Getenv("GITHUB_WEBHOOK_SECRET")
 	InternalSecret = os.Getenv("INTERNAL_SECRET")
@@ -191,7 +191,7 @@ func validateConfig() error {
 	var missing []string
 
 	if GithubToken == "" {
-		missing = append(missing, "GITHUB_PAT")
+		missing = append(missing, "GITHUB_TOKEN")
 	}
 	if RepositoryUrl == "" {
 		missing = append(missing, "GITHUB_REPOSITORY_URL")
