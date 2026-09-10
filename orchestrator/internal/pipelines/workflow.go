@@ -2,6 +2,7 @@ package pipelines
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -234,7 +235,11 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClien
 				}
 
 				// Process the container
-				contInspect, logOut, logErr, err := processContainer(ctx, tag, aier.TestCommand, cli)
+				testCommand := aier.TestCommand
+				if len(testCommand) == 0 {
+					testCommand = aier.TestCmd
+				}
+				contInspect, logOut, logErr, err := processContainer(ctx, tag, testCommand, cli)
 				if err != nil {
 					wf.errorChannel <- ErrorObject{
 						wfid: wf.wfid,
@@ -253,7 +258,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClien
 
 				if err := servertools.SendRequestAIEngine(ctx, "logs", types.AIEngineRequest{
 					Wfid:        wf.wfid,
-					PullRequest: wf.pullRequest,
+					PullRequest: *wf.pullRequest,
 					Stdout:      logOut,
 					Stderr:      logErr,
 					StartTime:   contInspect.StartTime,
@@ -282,7 +287,15 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClien
 				if aier.Documentation != "" {
 					summary += "\n\n" + aier.Documentation
 				}
-				if err := wstools.WriteSummary(filepath.Join(wf.workspace.path, "summary.md"), summary); err != nil {
+				commentBody, err := json.Marshal(map[string]string{"body": summary})
+				if err != nil {
+					wf.errorChannel <- ErrorObject{
+						wfid: wf.wfid,
+						err:  fmt.Errorf("Failed to marshal summary comment: %w", err),
+					}
+					continue
+				}
+				if err := servertools.PostSummaryComment(ctx, wf.pullRequest.CommentsURL, string(commentBody)); err != nil {
 					wf.errorChannel <- ErrorObject{
 						wfid: wf.wfid,
 						err:  fmt.Errorf("Failed to write summary comment: %w", err),

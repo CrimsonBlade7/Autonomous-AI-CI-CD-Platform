@@ -8,9 +8,10 @@ type AIEngineResponse struct {
 	PullRequest PullRequest
 
 	// Tests are ignored if Done.
-	TestCmd  []string
-	TestName string
-	Tests    []byte
+	TestCmd      []string
+	TestCommand  []string
+	TestName     string
+	Tests        []byte
 
 	// Done should always be accompanied by Summary.
 	Done    bool

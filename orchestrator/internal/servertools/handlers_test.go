@@ -202,10 +202,11 @@ func TestPostSummaryComment_Success(t *testing.T) {
 		w.WriteHeader(http.StatusCreated)
 	}))
 	t.Cleanup(srv.Close)
-	config.RepositoryUrl = srv.URL
+	config.RepositoryUrl = srv.URL + "/me/repo.git"
+	commentsURL := srv.URL + "/repos/me/repo/issues/1/comments"
 
 	body := `{"body":"summary"}`
-	if err := PostSummaryComment(context.Background(), srv.URL, body); err != nil {
+	if err := PostSummaryComment(context.Background(), commentsURL, body); err != nil {
 		t.Fatalf("PostSummaryComment: %v", err)
 	}
 
@@ -241,14 +242,31 @@ func TestPostSummaryComment_BadStatus(t *testing.T) {
 		_, _ = w.Write([]byte("server exploded"))
 	}))
 	t.Cleanup(srv.Close)
-	config.RepositoryUrl = srv.URL
+	config.RepositoryUrl = srv.URL + "/me/repo.git"
 
-	err := PostSummaryComment(context.Background(), srv.URL, `{"body":"summary"}`)
+	err := PostSummaryComment(context.Background(), srv.URL+"/repos/me/repo/issues/1/comments", `{"body":"summary"}`)
 	if err == nil {
 		t.Fatal("expected PostSummaryComment error for non-201 status")
 	}
 	if !strings.Contains(err.Error(), "Unexpected status code 500") {
 		t.Fatalf("error = %q, want status text", err.Error())
+	}
+}
+
+func TestPostSummaryComment_UntrustedURL(t *testing.T) {
+	prevToken, prevTimeout, prevRepoURL := config.GithubToken, config.RequestTimeout, config.RepositoryUrl
+	t.Cleanup(func() {
+		config.GithubToken = prevToken
+		config.RequestTimeout = prevTimeout
+		config.RepositoryUrl = prevRepoURL
+	})
+	config.GithubToken = "gh-token"
+	config.RequestTimeout = 2
+	config.RepositoryUrl = "https://github.com/me/repo.git"
+
+	err := PostSummaryComment(context.Background(), "https://api.github.com/repos/other/repo/issues/1/comments", `{"body":"summary"}`)
+	if err == nil {
+		t.Fatal("expected untrusted URL error")
 	}
 }
 

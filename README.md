@@ -66,12 +66,12 @@ RepositoryUrl               string
 GithubSecret                string
 InternalSecret              string
 AIEngineURL                 string = "http://localhost:8000"
-AiEngineRequestTimeout      int    = 5   // seconds
+RequestTimeout              int    = 5   // seconds
 ServerShutdownTimeout       int    = 30  // seconds
 ReadHeaderTimeout           int    = 2   // seconds
 WriteTimeout                int    = 5   // seconds
 ContainerTimeout            int    = 10  // minutes
-AIEngineRequestCloseTimeout int    = 10  // seconds
+RequestCloseTimeout         int    = 10  // seconds
 DockerStartTimeout          int    = 10  // seconds
 ContainerMemoryCap          int    = 512 // MB
 MaxTestPatchingAttempts     int    = 10

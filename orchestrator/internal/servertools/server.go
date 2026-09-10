@@ -217,20 +217,29 @@ func SendRequestAIEngine(ctx context.Context, jobType string, req types.AIEngine
 
 func isTrustedCommentsURL(commentsURL string) bool {
 	commentsParsed, err := url.Parse(commentsURL)
-	if err != nil || commentsParsed.Host == "" {
+	if err != nil || commentsParsed.Host == "" || commentsParsed.Path == "" {
 		return false
 	}
 
 	repoParsed, err := url.Parse(config.RepositoryUrl)
-	if err != nil || repoParsed.Host == "" {
+	if err != nil || repoParsed.Host == "" || repoParsed.Path == "" {
 		return false
 	}
 
-	if commentsParsed.Host == repoParsed.Host {
-		return true
+	repoPath := strings.TrimSuffix(strings.Trim(repoParsed.Path, "/"), ".git")
+	if repoPath == "" {
+		return false
+	}
+	expectedPathFragment := "/repos/" + repoPath + "/issues/"
+	if !strings.Contains(commentsParsed.Path, expectedPathFragment) || !strings.HasSuffix(commentsParsed.Path, "/comments") {
+		return false
 	}
 
-	return repoParsed.Host == "github.com" && commentsParsed.Host == "api.github.com"
+	if repoParsed.Host == "github.com" {
+		return commentsParsed.Host == "api.github.com"
+	}
+
+	return commentsParsed.Host == repoParsed.Host
 }
 
 // Posts a comment on the pull request for the results of the test.

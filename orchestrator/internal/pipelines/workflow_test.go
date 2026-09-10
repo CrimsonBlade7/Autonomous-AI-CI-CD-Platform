@@ -253,7 +253,7 @@ func TestHandlePullRequest_DuplicateOpenedPanics(t *testing.T) {
 
 func TestHandlePullRequest_MissingWorkflowIgnored(t *testing.T) {
 	wfm := NewWorkflowManager()
-	if err := wfm.handlePullRequest(context.Background(), nil, samplePR("edited"), types.NewPushedCommits()); err != nil {
+	if err := wfm.handlePullRequest(context.Background(), nil, samplePRPtr("edited"), types.NewPushedCommits()); err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := wfm.Get(42); ok {
