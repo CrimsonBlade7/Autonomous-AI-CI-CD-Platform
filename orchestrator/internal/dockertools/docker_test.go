@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -18,12 +19,12 @@ import (
 )
 
 type fakeImageManager struct {
-	list    dockerClient.ImageListResult
-	listErr error
-	removed []string
+	list      dockerClient.ImageListResult
+	listErr   error
+	removed   []string
 	removeErr error
-	build   dockerClient.ImageBuildResult
-	buildErr error
+	build     dockerClient.ImageBuildResult
+	buildErr  error
 }
 
 func (f *fakeImageManager) ImageList(ctx context.Context, options dockerClient.ImageListOptions) (dockerClient.ImageListResult, error) {
@@ -41,18 +42,19 @@ func (f *fakeImageManager) ImageBuild(ctx context.Context, buildContext io.Reade
 }
 
 type fakeContainerManager struct {
-	list       dockerClient.ContainerListResult
-	listErr    error
-	removed    []string
-	removeErr  error
-	create     dockerClient.ContainerCreateResult
-	createErr  error
-	logs       dockerClient.ContainerLogsResult
-	logsErr    error
-	startErr   error
-	wait       dockerClient.ContainerWaitResult
-	inspect    dockerClient.ContainerInspectResult
-	inspectErr error
+	list          dockerClient.ContainerListResult
+	listErr       error
+	removed       []string
+	removeErr     error
+	create        dockerClient.ContainerCreateResult
+	createOptions dockerClient.ContainerCreateOptions
+	createErr     error
+	logs          dockerClient.ContainerLogsResult
+	logsErr       error
+	startErr      error
+	wait          dockerClient.ContainerWaitResult
+	inspect       dockerClient.ContainerInspectResult
+	inspectErr    error
 }
 
 func (f *fakeContainerManager) ContainerList(ctx context.Context, options dockerClient.ContainerListOptions) (dockerClient.ContainerListResult, error) {
@@ -60,6 +62,7 @@ func (f *fakeContainerManager) ContainerList(ctx context.Context, options docker
 }
 
 func (f *fakeContainerManager) ContainerCreate(ctx context.Context, options dockerClient.ContainerCreateOptions) (dockerClient.ContainerCreateResult, error) {
+	f.createOptions = options
 	return f.create, f.createErr
 }
 
@@ -239,7 +242,7 @@ func TestRemoveContainer(t *testing.T) {
 
 func TestRunContainer_CreateError(t *testing.T) {
 	cm := &fakeContainerManager{createErr: errors.New("no docker")}
-	_, _, _, err := RunContainer(context.Background(), cm, "tag")
+	_, _, _, err := RunContainer(context.Background(), cm, "tag", nil)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -256,7 +259,7 @@ func TestRunContainer_WaitError(t *testing.T) {
 			Error:  errCh,
 		},
 	}
-	_, _, _, err := RunContainer(context.Background(), cm, "tag")
+	_, _, _, err := RunContainer(context.Background(), cm, "tag", nil)
 	if err == nil {
 		t.Fatal("expected wait error")
 	}
@@ -273,12 +276,16 @@ func TestRunContainer_Success(t *testing.T) {
 			Error:  make(chan error),
 		},
 	}
-	id, outR, errR, err := RunContainer(context.Background(), cm, "tag")
+	command := []string{"pytest", "-q"}
+	id, outR, errR, err := RunContainer(context.Background(), cm, "tag", command)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if id != "cid" {
 		t.Errorf("id = %q", id)
+	}
+	if got := cm.createOptions.Config.Cmd; !reflect.DeepEqual(got, command) {
+		t.Errorf("command = %v, want %v", got, command)
 	}
 	_, _ = io.Copy(io.Discard, outR)
 	_, _ = io.Copy(io.Discard, errR)

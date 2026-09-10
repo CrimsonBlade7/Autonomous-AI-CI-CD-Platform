@@ -155,6 +155,7 @@ class GeneratedTestPackage(TypedDict):
     expected_json: dict
     metadata_json: dict
     test_stub: str
+    test_command: list[str]
     documentation: str
     saved_to_disk: bool
     fixture_path: str
@@ -203,6 +204,7 @@ def generate_tests(
 
     test_stub = _build_test_stub(parsed, fixture_slug, pr_description)
     documentation = _build_documentation(parsed, metadata, fixture_slug, test_stub)
+    test_command = ["pytest", "-q"]
 
     fixture_dir = _FIXTURES_ROOT / fixture_slug
     saved = False
@@ -221,6 +223,7 @@ def generate_tests(
         expected_json=expected,
         metadata_json=metadata,
         test_stub=test_stub,
+        test_command=test_command,
         documentation=documentation,
         saved_to_disk=saved,
         fixture_path=str(fixture_dir),

@@ -46,6 +46,7 @@ class GeneratedTestsResponse(BaseModel):
     expected_json: dict
     metadata_json: dict
     test_stub: str
+    test_command: list[str]
     documentation: str
     saved_to_disk: bool
     fixture_path: str
@@ -150,6 +151,7 @@ async def _process_job(job_type: str, payload: JobRequest) -> None:
             done=False,
             test_name=f"test_{package['fixture_slug']}.py",
             tests=package["test_stub"].encode(),
+            test_command=package["test_command"],
             documentation=package["documentation"],
         )
         return
@@ -178,6 +180,7 @@ async def _process_job(job_type: str, payload: JobRequest) -> None:
         done=False,
         test_name=f"test_{package['fixture_slug']}.py",
         tests=package["test_stub"].encode(),
+        test_command=package["test_command"],
         suggestions=proposal["suggestions"],
         documentation=proposal["documentation"],
     )
@@ -238,6 +241,7 @@ async def generate_tests_endpoint(payload: GenerateTestsRequest) -> GeneratedTes
         expected_json=package["expected_json"],
         metadata_json=package["metadata_json"],
         test_stub=package["test_stub"],
+        test_command=package["test_command"],
         documentation=package["documentation"],
         saved_to_disk=package["saved_to_disk"],
         fixture_path=package["fixture_path"],

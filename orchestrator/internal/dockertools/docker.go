@@ -234,10 +234,11 @@ func BuildImage(ctx context.Context, im ImageManager, wsName, sha, srcPath strin
 
 // Builds and runs a container labeled with tag. Returns the id, stdout, stderr, and an error.
 // The caller is responsible for closing the logs and removing the container.
-func RunContainer(ctx context.Context, cm ContainerManager, tag string) (id string, outReader io.ReadCloser, errReader io.ReadCloser, err error) {
+func RunContainer(ctx context.Context, cm ContainerManager, tag string, command []string) (id string, outReader io.ReadCloser, errReader io.ReadCloser, err error) {
 
 	cont, err := cm.ContainerCreate(ctx, dockerClient.ContainerCreateOptions{
 		Config: &container.Config{
+			Cmd:    command,
 			Env:    config.TestingEnvSlice,
 			Labels: map[string]string{"managed-by": "ci-orchestrator"},
 		},
