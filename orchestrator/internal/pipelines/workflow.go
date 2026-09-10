@@ -235,11 +235,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClien
 				}
 
 				// Process the container
-				testCommand := aier.TestCommand
-				if len(testCommand) == 0 {
-					testCommand = aier.TestCmd
-				}
-				contInspect, logOut, logErr, err := processContainer(ctx, tag, testCommand, cli)
+				contInspect, logOut, logErr, err := processContainer(ctx, tag, aier.TestCmd, cli)
 				if err != nil {
 					wf.errorChannel <- ErrorObject{
 						wfid: wf.wfid,

@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/signal"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,6 +25,10 @@ import (
 )
 
 const githubAPIVersion = "2026-03-10"
+
+var summaryCommentHTTPClientFactory = func(timeout time.Duration) *http.Client {
+	return &http.Client{Timeout: timeout}
+}
 
 // Generates the HMAC key based on the message and secret
 func generateHMAC(message []byte, secret string) (string, error) {
@@ -217,21 +222,32 @@ func SendRequestAIEngine(ctx context.Context, jobType string, req types.AIEngine
 
 func isTrustedCommentsURL(commentsURL string) bool {
 	commentsParsed, err := url.Parse(commentsURL)
-	if err != nil || commentsParsed.Host == "" || commentsParsed.Path == "" {
+	if err != nil || commentsParsed.Scheme != "https" || commentsParsed.Host == "" || commentsParsed.Path == "" {
 		return false
 	}
 
 	repoParsed, err := url.Parse(config.RepositoryUrl)
-	if err != nil || repoParsed.Host == "" || repoParsed.Path == "" {
+	if err != nil || repoParsed.Scheme != "https" || repoParsed.Host == "" || repoParsed.Path == "" {
 		return false
 	}
 
 	repoPath := strings.TrimSuffix(strings.Trim(repoParsed.Path, "/"), ".git")
-	if repoPath == "" {
+	repoParts := strings.Split(repoPath, "/")
+	if len(repoParts) != 2 {
 		return false
 	}
-	expectedPathFragment := "/repos/" + repoPath + "/issues/"
-	if !strings.Contains(commentsParsed.Path, expectedPathFragment) || !strings.HasSuffix(commentsParsed.Path, "/comments") {
+	owner := repoParts[0]
+	repo := repoParts[1]
+
+	commentParts := strings.Split(strings.Trim(commentsParsed.Path, "/"), "/")
+	if len(commentParts) < 6 {
+		return false
+	}
+	tail := commentParts[len(commentParts)-6:]
+	if tail[0] != "repos" || tail[1] != owner || tail[2] != repo || tail[3] != "issues" || tail[5] != "comments" {
+		return false
+	}
+	if _, err := strconv.Atoi(tail[4]); err != nil {
 		return false
 	}
 
@@ -245,12 +261,10 @@ func isTrustedCommentsURL(commentsURL string) bool {
 // Posts a comment on the pull request for the results of the test.
 func PostSummaryComment(ctx context.Context, commentsURL string, body string) (err error) {
 	if !isTrustedCommentsURL(commentsURL) {
-		return fmt.Errorf("Untrusted comments URL host")
+		return fmt.Errorf("Untrusted comments URL")
 	}
 
-	cli := http.Client{
-		Timeout: seconds(config.RequestTimeout),
-	}
+	cli := summaryCommentHTTPClientFactory(seconds(config.RequestTimeout))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, commentsURL, strings.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("Failed to create http request: %w", err)

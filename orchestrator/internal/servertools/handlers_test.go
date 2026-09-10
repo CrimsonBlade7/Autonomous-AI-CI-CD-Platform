@@ -171,10 +171,12 @@ func TestSendRequestAIEngine_InvalidJobType(t *testing.T) {
 
 func TestPostSummaryComment_Success(t *testing.T) {
 	prevToken, prevTimeout, prevRepoURL := config.GithubToken, config.RequestTimeout, config.RepositoryUrl
+	prevFactory := summaryCommentHTTPClientFactory
 	t.Cleanup(func() {
 		config.GithubToken = prevToken
 		config.RequestTimeout = prevTimeout
 		config.RepositoryUrl = prevRepoURL
+		summaryCommentHTTPClientFactory = prevFactory
 	})
 	config.GithubToken = "gh-token"
 	config.RequestTimeout = 2
@@ -187,7 +189,7 @@ func TestPostSummaryComment_Success(t *testing.T) {
 		gotBody        string
 	)
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotMethod = r.Method
 		gotAuth = r.Header.Get("Authorization")
 		gotAccept = r.Header.Get("Accept")
@@ -202,6 +204,11 @@ func TestPostSummaryComment_Success(t *testing.T) {
 		w.WriteHeader(http.StatusCreated)
 	}))
 	t.Cleanup(srv.Close)
+	summaryCommentHTTPClientFactory = func(timeout time.Duration) *http.Client {
+		client := srv.Client()
+		client.Timeout = timeout
+		return client
+	}
 	config.RepositoryUrl = srv.URL + "/me/repo.git"
 	commentsURL := srv.URL + "/repos/me/repo/issues/1/comments"
 
@@ -229,19 +236,26 @@ func TestPostSummaryComment_Success(t *testing.T) {
 
 func TestPostSummaryComment_BadStatus(t *testing.T) {
 	prevToken, prevTimeout, prevRepoURL := config.GithubToken, config.RequestTimeout, config.RepositoryUrl
+	prevFactory := summaryCommentHTTPClientFactory
 	t.Cleanup(func() {
 		config.GithubToken = prevToken
 		config.RequestTimeout = prevTimeout
 		config.RepositoryUrl = prevRepoURL
+		summaryCommentHTTPClientFactory = prevFactory
 	})
 	config.GithubToken = "gh-token"
 	config.RequestTimeout = 2
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte("server exploded"))
 	}))
 	t.Cleanup(srv.Close)
+	summaryCommentHTTPClientFactory = func(timeout time.Duration) *http.Client {
+		client := srv.Client()
+		client.Timeout = timeout
+		return client
+	}
 	config.RepositoryUrl = srv.URL + "/me/repo.git"
 
 	err := PostSummaryComment(context.Background(), srv.URL+"/repos/me/repo/issues/1/comments", `{"body":"summary"}`)
@@ -267,6 +281,40 @@ func TestPostSummaryComment_UntrustedURL(t *testing.T) {
 	err := PostSummaryComment(context.Background(), "https://api.github.com/repos/other/repo/issues/1/comments", `{"body":"summary"}`)
 	if err == nil {
 		t.Fatal("expected untrusted URL error")
+	}
+}
+
+func TestPostSummaryComment_RejectsNonHTTPSURL(t *testing.T) {
+	prevToken, prevTimeout, prevRepoURL := config.GithubToken, config.RequestTimeout, config.RepositoryUrl
+	t.Cleanup(func() {
+		config.GithubToken = prevToken
+		config.RequestTimeout = prevTimeout
+		config.RepositoryUrl = prevRepoURL
+	})
+	config.GithubToken = "gh-token"
+	config.RequestTimeout = 2
+	config.RepositoryUrl = "https://github.com/me/repo.git"
+
+	err := PostSummaryComment(context.Background(), "http://api.github.com/repos/me/repo/issues/1/comments", `{"body":"summary"}`)
+	if err == nil {
+		t.Fatal("expected non-https URL to be rejected")
+	}
+}
+
+func TestPostSummaryComment_RejectsMalformedPath(t *testing.T) {
+	prevToken, prevTimeout, prevRepoURL := config.GithubToken, config.RequestTimeout, config.RepositoryUrl
+	t.Cleanup(func() {
+		config.GithubToken = prevToken
+		config.RequestTimeout = prevTimeout
+		config.RepositoryUrl = prevRepoURL
+	})
+	config.GithubToken = "gh-token"
+	config.RequestTimeout = 2
+	config.RepositoryUrl = "https://github.com/me/repo.git"
+
+	err := PostSummaryComment(context.Background(), "https://api.github.com/repos/other/repos/me/repo/issues/1/comments", `{"body":"summary"}`)
+	if err == nil {
+		t.Fatal("expected malformed path to be rejected")
 	}
 }
 
