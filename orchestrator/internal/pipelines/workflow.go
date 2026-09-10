@@ -257,6 +257,9 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClien
 					OOMKilled:   contInspect.OOMKilled,
 					ExitCode:    contInspect.ExitCode,
 				}); err != nil {
+					if errors.Is(err, context.Canceled) && ctx.Err() != nil {
+						continue
+					}
 					wf.errorChannel <- ErrorObject{
 						wfid: wf.wfid,
 						err:  fmt.Errorf("Request to AI Engine failed: %w", err),
