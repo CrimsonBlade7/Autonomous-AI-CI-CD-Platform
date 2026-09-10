@@ -184,6 +184,14 @@ func TestRunWorkflow_MultipleRunTestsCyclesThenClose(t *testing.T) {
 		t.Errorf("attemptNum = %d, want 3", wf.attemptNum)
 	}
 
+	// wf.jobs is unbuffered, so this completes only after the final logs request returns.
+	// The mismatched pull request makes the workflow discard this barrier job.
+	barrierPR := pr
+	barrierPR.Number++
+	wf.jobs <- Job{
+		JobType: "run_tests",
+		Aier: &types.AIEngineResponse{PullRequest: barrierPR},
+	}
 	cancel()
 
 	select {
