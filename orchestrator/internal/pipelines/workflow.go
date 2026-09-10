@@ -19,7 +19,7 @@ import (
 
 type Workflow struct {
 	wfid             int // The pr number.
-	pullRequest      types.PullRequest
+	pullRequest      *types.PullRequest
 	jobs             chan Job
 	workspace        Workspace
 	workspaceMutex   sync.RWMutex
@@ -52,7 +52,7 @@ type Job struct {
 
 // Creates a new workflow. Path, cleanWs, and cancelWf function are are uninitialized by default.
 // Path and cleanup are initialized by the OPEN job.
-func newWorkflow(pr types.PullRequest, errChan chan<- ErrorObject) *Workflow {
+func newWorkflow(pr *types.PullRequest, errChan chan<- ErrorObject) *Workflow {
 	return &Workflow{
 		wfid:         pr.Number,
 		pullRequest:  pr,
@@ -135,7 +135,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClien
 			switch job.JobType {
 			case "open":
 				wf.attemptNum = 0
-				path, clean, err := wstools.InitWorkspace(ctx, wf.pullRequest, &wstools.GithubClient{})
+				path, clean, err := wstools.InitWorkspace(ctx, *wf.pullRequest, &wstools.GithubClient{})
 				if err != nil {
 					var cleanerr error
 					if clean != nil {
@@ -154,7 +154,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClien
 
 				if err = servertools.SendRequestAIEngine(ctx, "open", types.AIEngineRequest{
 					Wfid:        wf.wfid,
-					PullRequest: wf.pullRequest,
+					PullRequest: *wf.pullRequest,
 				}); err != nil {
 					wf.errorChannel <- ErrorObject{
 						wfid: wf.wfid,
@@ -170,7 +170,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClien
 					panic("EDIT or SYNC should always come from a pull request.")
 				}
 
-				wf.pullRequest = *pr
+				wf.pullRequest = pr
 
 				// May be redundant, but exists just in case the types are relabled.
 				var jt string
@@ -196,7 +196,7 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClien
 				if aier == nil {
 					panic("RUN_TESTS should always come from a pull request.")
 				}
-				if aier.PullRequest != wf.pullRequest {
+				if aier.PullRequest != *wf.pullRequest {
 					// Drop aier response if the pull requests do not match by value
 					continue
 				}
@@ -246,15 +246,16 @@ func (wf *Workflow) runWorkflow(ctx context.Context, cli dockertools.DockerClien
 				}
 
 				if err := servertools.SendRequestAIEngine(ctx, "logs", types.AIEngineRequest{
-					Wfid:      wf.wfid,
-					Stdout:    logOut,
-					Stderr:    logErr,
-					StartTime: contInspect.StartTime,
-					EndTime:   contInspect.EndTime,
-					Errors:    contInspect.Errors,
-					Status:    contInspect.Status,
-					OOMKilled: contInspect.OOMKilled,
-					ExitCode:  contInspect.ExitCode,
+					Wfid:        wf.wfid,
+					PullRequest: *wf.pullRequest,
+					Stdout:      logOut,
+					Stderr:      logErr,
+					StartTime:   contInspect.StartTime,
+					EndTime:     contInspect.EndTime,
+					Errors:      contInspect.Errors,
+					Status:      contInspect.Status,
+					OOMKilled:   contInspect.OOMKilled,
+					ExitCode:    contInspect.ExitCode,
 				}); err != nil {
 					wf.errorChannel <- ErrorObject{
 						wfid: wf.wfid,

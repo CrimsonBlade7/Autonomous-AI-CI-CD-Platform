@@ -140,7 +140,7 @@ func TestRunWorkflow_MultipleRunTestsCyclesThenClose(t *testing.T) {
 
 	pr := samplePR("opened")
 	errCh := make(chan ErrorObject, 8)
-	wf := newWorkflow(pr, errCh)
+	wf := newWorkflow(&pr, errCh)
 	wf.workspace.path = t.TempDir()
 	wf.workspace.removeWorkspace = func() error { return nil }
 
@@ -227,7 +227,7 @@ func TestRunWorkflow_StopsAfterMaxTestPatchingAttempts(t *testing.T) {
 
 	pr := samplePR("opened")
 	errCh := make(chan ErrorObject, 8)
-	wf := newWorkflow(pr, errCh)
+	wf := newWorkflow(&pr, errCh)
 	wf.workspace.path = t.TempDir()
 	wf.workspace.removeWorkspace = func() error { return nil }
 
