@@ -49,7 +49,7 @@ func seconds(n int) time.Duration {
 }
 
 // Github webhook handler
-func whHandler(prChan chan<- types.PullRequest, pc *types.PushedCommits) http.HandlerFunc {
+func whHandler(prChan chan<- *types.PullRequest, pc *types.PushedCommits) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			closeErr := r.Body.Close()
@@ -104,12 +104,12 @@ func whHandler(prChan chan<- types.PullRequest, pc *types.PushedCommits) http.Ha
 		}
 
 		slog.Info("Webhook recieved", "pull request", pr)
-		prChan <- pr
+		prChan <- &pr
 	}
 }
 
 // Handles responses from the AI Engine and sends response to respChannel.
-func aiEngineResponseHandler(aierChan chan<- types.AIEngineResponse) http.HandlerFunc {
+func aiEngineResponseHandler(aierChan chan<- *types.AIEngineResponse) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if closeErr := r.Body.Close(); closeErr != nil {
@@ -152,7 +152,7 @@ func aiEngineResponseHandler(aierChan chan<- types.AIEngineResponse) http.Handle
 			return
 		}
 		slog.Info("AI Engine response recived", "aier", resp)
-		aierChan <- resp
+		aierChan <- &resp
 	}
 }
 
@@ -244,7 +244,7 @@ func PostSummaryComment(ctx context.Context, commentsURL string, body string) (e
 }
 
 // Starts the http server.
-func StartServer(ctx context.Context, prChan chan<- types.PullRequest, aierChan chan<- types.AIEngineResponse, pc *types.PushedCommits) (err error) {
+func StartServer(ctx context.Context, prChan chan<- *types.PullRequest, aierChan chan<- *types.AIEngineResponse, pc *types.PushedCommits) (err error) {
 
 	// initialize server
 	mux := http.NewServeMux()

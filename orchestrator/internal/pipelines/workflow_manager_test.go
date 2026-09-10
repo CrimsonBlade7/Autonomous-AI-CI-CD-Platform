@@ -48,14 +48,14 @@ func assertNoJob(t *testing.T, ch chan Job) {
 	}
 }
 
-func newRunningPipeline(t *testing.T) (*WorkflowManager, chan types.PullRequest, chan types.AIEngineResponse) {
+func newRunningPipeline(t *testing.T) (*WorkflowManager, chan *types.PullRequest, chan *types.AIEngineResponse) {
 	t.Helper()
 	wfm := NewWorkflowManager()
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 
-	prChan := make(chan types.PullRequest)
-	aierChan := make(chan types.AIEngineResponse)
+	prChan := make(chan *types.PullRequest)
+	aierChan := make(chan *types.AIEngineResponse)
 	pc := types.NewPushedCommits()
 
 	// cli is nil: none of these test paths touch Docker.
@@ -66,68 +66,68 @@ func newRunningPipeline(t *testing.T) (*WorkflowManager, chan types.PullRequest,
 func TestRunWorkflowPipeline_AierDoneFalseDispatchesRunTests(t *testing.T) {
 	wfm, _, aierChan := newRunningPipeline(t)
 
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	jobs, stop := captureJobs(wf)
 	t.Cleanup(stop)
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() {}})
 
-	aierChan <- types.AIEngineResponse{Wfid: 42, Done: false}
+	aierChan <- &types.AIEngineResponse{Wfid: 42, Done: false}
 	waitForJob(t, jobs, "run_tests")
 }
 
 func TestRunWorkflowPipeline_AierDoneTrueDispatchesCommitPush(t *testing.T) {
 	wfm, _, aierChan := newRunningPipeline(t)
 
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	jobs, stop := captureJobs(wf)
 	t.Cleanup(stop)
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() {}})
 
-	aierChan <- types.AIEngineResponse{Wfid: 42, Done: true}
+	aierChan <- &types.AIEngineResponse{Wfid: 42, Done: true}
 	waitForJob(t, jobs, "commit_push")
 }
 
 func TestRunWorkflowPipeline_IgnoresUnknownWorkflowID(t *testing.T) {
 	wfm, _, aierChan := newRunningPipeline(t)
 
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	jobs, stop := captureJobs(wf)
 	t.Cleanup(stop)
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() {}})
 
-	aierChan <- types.AIEngineResponse{Wfid: 999, Done: false}
+	aierChan <- &types.AIEngineResponse{Wfid: 999, Done: false}
 	assertNoJob(t, jobs)
 }
 
 func TestRunWorkflowPipeline_IgnoresStoppedWorkflow(t *testing.T) {
 	wfm, _, aierChan := newRunningPipeline(t)
 
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	jobs, stop := captureJobs(wf)
 	t.Cleanup(stop)
 	close(wf.done) // mark not running
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() {}})
 
-	aierChan <- types.AIEngineResponse{Wfid: 42, Done: false}
+	aierChan <- &types.AIEngineResponse{Wfid: 42, Done: false}
 	assertNoJob(t, jobs)
 }
 
 func TestRunWorkflowPipeline_ForwardsPullRequestsToHandler(t *testing.T) {
 	wfm, prChan, _ := newRunningPipeline(t)
 
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	jobs, stop := captureJobs(wf)
 	t.Cleanup(stop)
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() {}})
 
-	prChan <- samplePR("edited")
+	prChan <- samplePRPtr("edited")
 	waitForJob(t, jobs, "edit")
 }
 
 func TestRunWorkflowPipeline_ErrorCancelsAndRemovesWorkflow(t *testing.T) {
 	wfm, _, _ := newRunningPipeline(t)
 
-	wf := newWorkflow(samplePR("opened"), wfm.wfErrChan)
+	wf := newWorkflow(samplePRPtr("opened"), wfm.wfErrChan)
 	cancelled := make(chan struct{})
 	wfm.Set(42, WorkflowObject{workflow: wf, cancel: func() { close(cancelled) }})
 

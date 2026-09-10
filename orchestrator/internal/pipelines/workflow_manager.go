@@ -61,7 +61,7 @@ func (wfm *WorkflowManager) Remove(id int) {
 }
 
 // Starts the run pipeline. Handles incoming workflows.
-func (wfm *WorkflowManager) RunWorkflowPipeline(ctx context.Context, cli dockertools.DockerClient, prChan <-chan types.PullRequest, aierChan <-chan types.AIEngineResponse, pc *types.PushedCommits) {
+func (wfm *WorkflowManager) RunWorkflowPipeline(ctx context.Context, cli dockertools.DockerClient, prChan <-chan *types.PullRequest, aierChan <-chan *types.AIEngineResponse, pc *types.PushedCommits) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -95,7 +95,7 @@ func (wfm *WorkflowManager) RunWorkflowPipeline(ctx context.Context, cli dockert
 			if aier.Done {
 				success := wfo.workflow.trySend(Job{
 					JobType: "commit_push",
-					Aier:    &aier,
+					Aier:    aier,
 				})
 				if !success {
 					slog.Error("Workflow is closed", "ID", aier.Wfid)
@@ -104,7 +104,7 @@ func (wfm *WorkflowManager) RunWorkflowPipeline(ctx context.Context, cli dockert
 			} else {
 				success := wfo.workflow.trySend(Job{
 					JobType: "run_tests",
-					Aier:    &aier,
+					Aier:    aier,
 				})
 				if !success {
 					slog.Error("Workflow is closed", "ID", aier.Wfid)
@@ -115,7 +115,7 @@ func (wfm *WorkflowManager) RunWorkflowPipeline(ctx context.Context, cli dockert
 	}
 }
 
-func (wfm *WorkflowManager) handlePullRequest(ctx context.Context, cli dockertools.DockerClient, pr types.PullRequest, pc *types.PushedCommits) (err error) {
+func (wfm *WorkflowManager) handlePullRequest(ctx context.Context, cli dockertools.DockerClient, pr *types.PullRequest, pc *types.PushedCommits) (err error) {
 	num := pr.Number
 	wfo, exists := wfm.Get(num)
 	var wf *Workflow
@@ -167,7 +167,7 @@ func (wfm *WorkflowManager) handlePullRequest(ctx context.Context, cli dockertoo
 	case "edited":
 		success := wfo.workflow.trySend(Job{
 			JobType:     "edit",
-			PullRequest: &pr,
+			PullRequest: pr,
 		})
 		if !success {
 			return fmt.Errorf("Workflow %v is closed", wfo.workflow.wfid)
@@ -181,7 +181,7 @@ func (wfm *WorkflowManager) handlePullRequest(ctx context.Context, cli dockertoo
 
 		success := wfo.workflow.trySend(Job{
 			JobType:     "sync",
-			PullRequest: &pr,
+			PullRequest: pr,
 		})
 		if !success {
 			return fmt.Errorf("Workflow %v is closed", wfo.workflow.wfid)
@@ -195,7 +195,7 @@ func (wfm *WorkflowManager) handlePullRequest(ctx context.Context, cli dockertoo
 }
 
 // Starts a workflow on pr.
-func (wfm *WorkflowManager) openPr(ctx context.Context, cli dockertools.DockerClient, pr types.PullRequest, wf *Workflow, pc *types.PushedCommits) {
+func (wfm *WorkflowManager) openPr(ctx context.Context, cli dockertools.DockerClient, pr *types.PullRequest, wf *Workflow, pc *types.PushedCommits) {
 	subCtx, end := context.WithCancel(ctx)
 	wfm.Set(pr.Number, WorkflowObject{
 		workflow: wf,
@@ -207,6 +207,6 @@ func (wfm *WorkflowManager) openPr(ctx context.Context, cli dockertools.DockerCl
 	}(subCtx, cli)
 	wf.jobs <- Job{
 		JobType:     "open",
-		PullRequest: &wf.pullRequest,
+		PullRequest: wf.pullRequest,
 	}
 }

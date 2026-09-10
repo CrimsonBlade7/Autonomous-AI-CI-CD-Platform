@@ -40,7 +40,7 @@ func TestWhHandler_AcceptsValidWebhook(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	prChan := make(chan types.PullRequest, 1)
+	prChan := make(chan *types.PullRequest, 1)
 	pc := types.NewPushedCommits()
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -71,7 +71,7 @@ func TestWhHandler_Unauthorized(t *testing.T) {
 	req.Header.Set("X-GitHub-Event", "pull_request")
 	rr := httptest.NewRecorder()
 
-	whHandler(make(chan types.PullRequest, 1), types.NewPushedCommits())(rr, req)
+	whHandler(make(chan *types.PullRequest, 1), types.NewPushedCommits())(rr, req)
 	if rr.Code != http.StatusUnauthorized {
 		t.Errorf("status = %d, want 401", rr.Code)
 	}
@@ -80,7 +80,7 @@ func TestWhHandler_Unauthorized(t *testing.T) {
 func TestWhHandler_MethodNotAllowed(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rr := httptest.NewRecorder()
-	whHandler(make(chan types.PullRequest, 1), types.NewPushedCommits())(rr, req)
+	whHandler(make(chan *types.PullRequest, 1), types.NewPushedCommits())(rr, req)
 	if rr.Code != http.StatusMethodNotAllowed {
 		t.Errorf("status = %d, want 405", rr.Code)
 	}
@@ -99,7 +99,7 @@ func TestWhHandler_IgnoresSelfPush(t *testing.T) {
 
 	pc := types.NewPushedCommits()
 	pc.Add(11, "aaa111")
-	prChan := make(chan types.PullRequest, 1)
+	prChan := make(chan *types.PullRequest, 1)
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -130,7 +130,7 @@ func TestAIEngineResponseHandler_AcceptsValidPayload(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ch := make(chan types.AIEngineResponse, 1)
+	ch := make(chan *types.AIEngineResponse, 1)
 	req := httptest.NewRequest(http.MethodPost, "/patch", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("HMAC-Signature-256", sig)
@@ -156,7 +156,7 @@ func TestAIEngineResponseHandler_Unauthorized(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("HMAC-Signature-256", "nope")
 	rr := httptest.NewRecorder()
-	aiEngineResponseHandler(make(chan types.AIEngineResponse, 1))(rr, req)
+	aiEngineResponseHandler(make(chan *types.AIEngineResponse, 1))(rr, req)
 	if rr.Code != http.StatusUnauthorized {
 		t.Errorf("status = %d, want 401", rr.Code)
 	}

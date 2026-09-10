@@ -45,8 +45,8 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(multiLogger, nil))
 	slog.SetDefault(logger)
 	mainCtx := context.Background()
-	prChan := make(chan types.PullRequest)
-	aierChan := make(chan types.AIEngineResponse)
+	prChan := make(chan *types.PullRequest)
+	aierChan := make(chan *types.AIEngineResponse)
 	pcMap := types.NewPushedCommits()
 	wfm := pipelines.NewWorkflowManager()
 

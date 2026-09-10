@@ -140,7 +140,7 @@ func TestRunWorkflow_MultipleRunTestsCyclesThenClose(t *testing.T) {
 
 	pr := samplePR("opened")
 	errCh := make(chan ErrorObject, 8)
-	wf := newWorkflow(pr, errCh)
+	wf := newWorkflow(&pr, errCh)
 	wf.workspace.path = t.TempDir()
 	wf.workspace.removeWorkspace = func() error { return nil }
 
@@ -158,6 +158,7 @@ func TestRunWorkflow_MultipleRunTestsCyclesThenClose(t *testing.T) {
 			JobType: "run_tests",
 			Aier: &types.AIEngineResponse{
 				PullRequest: pr,
+				TestCmd:     []string{"pytest", fmt.Sprintf("cycle_%d_test.go", i)},
 				TestName:    fmt.Sprintf("cycle_%d_test.go", i),
 				Tests:       []byte("package cycle"),
 			},
@@ -226,7 +227,7 @@ func TestRunWorkflow_StopsAfterMaxTestPatchingAttempts(t *testing.T) {
 
 	pr := samplePR("opened")
 	errCh := make(chan ErrorObject, 8)
-	wf := newWorkflow(pr, errCh)
+	wf := newWorkflow(&pr, errCh)
 	wf.workspace.path = t.TempDir()
 	wf.workspace.removeWorkspace = func() error { return nil }
 
@@ -244,6 +245,7 @@ func TestRunWorkflow_StopsAfterMaxTestPatchingAttempts(t *testing.T) {
 			JobType: "run_tests",
 			Aier: &types.AIEngineResponse{
 				PullRequest: pr,
+				TestCmd:     []string{"pytest", name},
 				TestName:    name,
 				Tests:       []byte("package cycle"),
 			},

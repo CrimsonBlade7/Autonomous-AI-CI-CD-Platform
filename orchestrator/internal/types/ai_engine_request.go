@@ -8,12 +8,11 @@ import (
 // Request should come with a HMAC-Signature-256.
 // Contains the pull request and the logs.
 type AIEngineRequest struct {
-	Wfid int // Mandatory
-
-	// Current pull request
+	// Mandatory
+	Wfid        int
 	PullRequest PullRequest
 
-	// Test results
+	// Test results (optional; leave blank if not sending logs)
 	Stdout    string
 	Stderr    string
 	StartTime time.Time
